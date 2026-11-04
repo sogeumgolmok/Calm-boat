@@ -50,8 +50,8 @@ body{background:var(--night);color:var(--ink);font-family:var(--body);overflow:h
 .panel textarea{width:100%;box-sizing:border-box;min-height:84px;resize:none;border-radius:12px;padding:10px 12px;
   font:15px/1.6 var(--body);color:var(--ink);background:rgba(244,239,230,.08);border:1px solid var(--glass-line);-webkit-user-select:text;user-select:text}
 .row{display:flex;justify-content:space-between;align-items:center;gap:10px}
-.count{font-size:11px;color:var(--ink-soft);font-variant-numeric:tabular-nums}
-.btn{font:14px var(--body);color:#1d1408;background:var(--lamp);border:0;border-radius:999px;padding:9px 18px;cursor:pointer}
+.count{min-width:0;font-size:11px;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+.btn{white-space:nowrap;font:14px var(--body);color:#1d1408;background:var(--lamp);border:0;border-radius:999px;padding:9px 18px;cursor:pointer}
 .btn:disabled{opacity:.45;cursor:default}
 .btn.quiet{background:transparent;color:var(--ink);border:1px solid var(--glass-line)}
 .letter{font-family:var(--display);font-size:17px;line-height:1.8;color:var(--ink);white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere;
@@ -128,7 +128,7 @@ body{background:var(--night);color:var(--ink);font-family:var(--body);overflow:h
 <div class="panel" id="catchPanel" hidden>
   <h2 id="catchTitle">낚았어요!</h2>
   <p id="catchSize"></p>
-  <div class="row"><span class="count" id="catchCount"></span><button class="btn" id="releaseBtn" type="button">놓아주기</button></div>
+  <div class="row"><span class="count" id="catchCount"></span><span class="row" style="gap:8px"><button class="btn quiet" id="giftBtn" type="button" hidden>선물하기</button><button class="btn" id="releaseBtn" type="button">놓아주기</button></span></div>
 </div>
 
 <div class="dock fade" id="dock">
@@ -136,7 +136,7 @@ body{background:var(--night);color:var(--ink);font-family:var(--body);overflow:h
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2.5h4M10.5 2.5v4.2c0 .8-.4 1.4-1 1.9C8 9.8 7.5 11 7.5 12.6V19a2.5 2.5 0 0 0 2.5 2.5h4a2.5 2.5 0 0 0 2.5-2.5v-6.4c0-1.6-.5-2.8-2-4-.6-.5-1-1.1-1-1.9V2.5"/><path d="M10 14h4M10 16.8h3"/></svg>
   </button>
   <button class="round" id="lampBtn" type="button" aria-label="등불 깜빡이기">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4.5h6M12 2v2.5M8 7h8l-.8 11H8.8z"/><path d="M7 18h10M10 21h4"/><path d="M12 10.5c1 1 1.2 2.2.4 3.2-.5.6-1.4.6-1.8 0-.7-.9-.1-2 .6-2.6" fill="currentColor" stroke="none"/></svg>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 18h5M10.5 21h3"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.1v.6h5v-.6c0-.8.4-1.6 1.1-2.1A6 6 0 0 0 12 3z"/><path d="M12 7.5v2.5" /></svg>
   </button>
   <button class="round" id="soundBtn" type="button" aria-label="소리와 음량" aria-expanded="false">
     <svg id="spkOn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg>
@@ -369,10 +369,10 @@ for(const [u,th] of [[0.62,0.07],[0.28,0.06]]){ const s=new THREE.Mesh(new THREE
 const SEAT_Z=-HL/2+HL*0.62, SEAT_Y=0.295;
 
 /* ---------- the little one ---------- */
-function makeBuddy(){
+function makeBuddy(hatC=0xd6584a,coatC=0xf2b83a){
   const g=new THREE.Group();
   const M=(c,r=0.75)=>new THREE.MeshStandardMaterial({color:c,roughness:r});
-  const coat=M(0xf2b83a,0.55), skin=M(0xf6d3bb,0.8), hat=M(0xd6584a,0.95), cream=M(0xf3ead8,0.95),
+  const coat=M(coatC,0.55), skin=M(0xf6d3bb,0.8), hat=M(hatC,0.95), cream=M(0xf3ead8,0.95),
         dark=M(0x1c1918,0.25), blush=M(0xf09292,0.9), pants=M(0x3b5878,0.9), boot=M(0x5a3a2a,0.6);
   const body=new THREE.Mesh(new THREE.CapsuleGeometry(0.17,0.12,8,20),coat); body.position.y=0.25; body.scale.set(1.08,1,1); g.add(body);
   for(const s of [-1,1]){
@@ -521,7 +521,7 @@ function updatePod(){
 const surf=makeDolphin(); surf.g.visible=false; scene.add(surf.g);
 let surfState=null, nextSurf=18;
 function updateSurfacer(dt){
-  if(!surfState){ if(!started) return; nextSurf-=dt; if(nextSurf>0) return; nextSurf=22+Math.random()*25;
+  if(!surfState){ if(!started) return; nextSurf-=rdt; if(nextSurf>0) return; nextSurf=22+Math.random()*25;
     surfState={side:Math.random()<.5?-1:1,z:4,ph:-2.5,lastY:-1}; surf.g.visible=true; }
   const s=surfState; s.z-=dt*1.8; s.ph+=dt*1.9;
   const up=Math.max(0,Math.sin(s.ph)), y=-1.0+1.02*up;
@@ -546,7 +546,7 @@ meteor.center.set(1,0.5); meteor.visible=false; scene.add(meteor);
 let met=null, nextMet=12;
 const mA=new THREE.Vector3(), mB=new THREE.Vector3();
 function updateMeteor(dt){
-  if(!met){ if(!started) return; nextMet-=dt; if(nextMet>0) return; nextMet=60;
+  if(!met){ if(!started) return; nextMet-=rdt; if(nextMet>0) return; nextMet=60;
     if(night<0.3) return;
     const az=Math.random()*Math.PI*2, el=THREE.MathUtils.degToRad(28+Math.random()*40);
     met={start:new THREE.Vector3().setFromSphericalCoords(3000,Math.PI/2-el,az),
@@ -630,7 +630,7 @@ function updateMist(dt){
     m.vy-=dt*2.2; m.vx*=0.99; m.s.position.x+=m.vx*dt+dt*0.6; m.s.position.y+=Math.max(m.vy,0.3)*dt; m.s.position.z+=m.vz*dt;
     m.s.scale.setScalar(lerp(0.8,4.5,Math.sqrt(k))); m.s.material.opacity=(1-k)*lerp(0.75,0.35,night); }
 }
-let enc=null, nextEnc=70, encTurn=0;
+let enc=null, nextEnc=40, encTurn=0;
 function disposeTree(o){ o.traverse(c=>{ if(c.isMesh&&!c.userData.keep){ c.geometry.dispose(); } }); }
 function startEncounter(){
   const side=Math.random()<.5?-1:1;
@@ -648,7 +648,7 @@ function startEncounter(){
 }
 const encLocal=new THREE.Vector3();
 function updateEncounter(dt){
-  if(!enc){ if(!started) return; nextEnc-=dt; if(nextEnc<=0) startEncounter(); return; }
+  if(!enc){ if(!started) return; nextEnc-=rdt; if(nextEnc<=0) startEncounter(); return; }
   if(enc.kind==='rock'){
     const {grp,animal}=enc;
     encLocal.copy(boat.position); encLocal.y=0.6; animal.g.worldToLocal(encLocal);
@@ -750,7 +750,7 @@ const rodDir=new THREE.Vector3(), rod=new THREE.Group(); rod.visible=false; budd
   const reel=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,0.03,14),new THREE.MeshStandardMaterial({color:0xb9b9b9,metalness:0.6,roughness:0.3})); reel.rotation.z=Math.PI/2; reel.position.y=0.22; rod.add(reel); }
 const lineGeo=new THREE.BufferGeometry(); lineGeo.setAttribute('position',new THREE.Float32BufferAttribute([0,0,0,0,0,0],3));
 const fishLine=new THREE.Line(lineGeo,new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:0.7})); fishLine.frustumCulled=false; fishLine.visible=false; scene.add(fishLine);
-let fishing=null, nextBob=45;
+let fishing=null, nextBob=20;
 const tipW=new THREE.Vector3(), holdW=new THREE.Vector3(), bobRel=new THREE.Vector3();
 let caughtCount=parseInt(store.get('calmsea.catch'),10)||0;
 function aimRod(side){ rodDir.set(side*0.4,0.82,-0.42).normalize(); rod.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),rodDir); rod.position.set(side*0.16,0.2,-0.18); }
@@ -763,7 +763,7 @@ function startCast(){
   aimRod(f.side); rod.visible=true; fishLine.visible=true; soundPlunk(0.6);
 }
 function updateFishing(dt){
-  if(!fishing){ if(!started) return; nextBob-=dt; if(nextBob>0) return;
+  if(!fishing){ if(!started) return; nextBob-=rdt; if(nextBob>0) return;
     const side=Math.random()<.5?-1:1;
     fishing={state:'float',t:0,side}; bobber.position.set(boat.position.x+side*(2.2+Math.random()*0.8),0,boat.position.z-24); bobber.visible=true; return; }
   const f=fishing; f.t+=dt;
@@ -777,7 +777,7 @@ function updateFishing(dt){
   }
   // from the cast on, the bobber rides along beside the boat
   const k=smooth(0,1,f.t);
-  bobRel.copy(f.from).lerp(new THREE.Vector3(f.side*2.6,0,SEAT_Z-2.8),k);
+  if(f.from) bobRel.copy(f.from).lerp(new THREE.Vector3(f.side*2.6,0,SEAT_Z-2.8),k);
   bobber.position.set(boat.position.x+bobRel.x,0,boat.position.z+bobRel.z);
   const tip=rodTip();
   if(f.state==='cast'){
@@ -792,35 +792,45 @@ function updateFishing(dt){
     if(f.t>1.9){ f.state='pull'; f.t=0; bobber.visible=false; f.c=makeCatch(f.kind); scene.add(f.c.g);
       f.size=Math.round(f.kind.min+Math.random()*(f.kind.max-f.kind.min)); f.start=bobber.position.clone(); f.start.y=-0.4;
       splash(f.start.x,f.start.z,true); splash(f.start.x,f.start.z,true); soundSplash(1.2); soundReel(); }
-  } else if(f.state==='pull'||f.state==='show'||f.state==='release'){
+  } else {
     holdW.set(f.side*0.25,1.75,SEAT_Z-1.45); boat.localToWorld(holdW);
     const c=f.c;
-    if(f.state==='pull'){ const s=smooth(0,1.1,f.t);
+    if(f.state==='incoming'){ const s=smooth(0,2.2,f.t);
+      c.g.position.copy(f.src).lerp(holdW,s); c.g.position.y+=Math.sin(Math.PI*s)*7;
+      c.g.rotation.set(0,f.side*Math.PI/2*s,(1-s)*f.side*3);
+      if(f.t>2.2){ f.state='show'; f.t=0; splash(holdW.x,holdW.z,false); soundSplash(0.5); showCatch(f); } }
+    else if(f.state==='gift'){ const s=smooth(0,2.0,f.t); const o=others.get(f.to); if(o) f.dest.copy(o.g.position);
+      c.g.position.copy(f.from0).lerp(f.dest,s); c.g.position.y+=Math.sin(Math.PI*s)*8;
+      c.g.rotation.set(0,f.side*Math.PI/2,s*Math.PI*4*f.side);
+      if(f.t>2.0){ splash(f.dest.x,f.dest.z,true); scene.remove(c.g); disposeTree(c.g); fishing=null; nextBob=90+Math.random()*60; return; } }
+    else if(f.state==='pull'){ const s=smooth(0,1.1,f.t);
       c.g.position.copy(f.start).lerp(holdW,s); c.g.position.y+=Math.sin(Math.PI*s)*1.6;
       c.g.rotation.set(0,f.side*Math.PI/2*s,(1-s)*f.side*2.5);
       if(f.t>1.1){ f.state='show'; f.t=0; showCatch(f); } }
     else if(f.state==='show'){ c.g.position.copy(holdW); c.g.position.y+=Math.sin(t*2)*0.04;
       c.g.rotation.set(Math.sin(t*1.3)*0.06,f.side*Math.PI/2+Math.sin(t*0.9)*0.15,Math.sin(t*1.7)*0.05);
+      if(picking){ pickTimer-=dt; f.t=Math.min(f.t,8); if(pickTimer<=0) picking=false; }
       if(f.t>14) releaseCatch(); }
     else { const s=smooth(0,1.2,f.t), out=new THREE.Vector3(f.side*4,0,-1); boat.localToWorld(out);
       c.g.position.copy(holdW).lerp(out,s); c.g.position.y=lerp(holdW.y,-1.2,s)+Math.sin(Math.PI*s)*0.9; c.g.rotation.x=s*0.8;
       if(f.t>0.95&&!f.splashed){ f.splashed=true; splash(out.x,out.z,true); soundSplash(1); }
-      if(f.t>1.3){ scene.remove(c.g); disposeTree(c.g); rod.visible=false; fishLine.visible=false; fishing=null; nextBob=90+Math.random()*60; return; } }
+      if(f.t>1.3){ scene.remove(c.g); disposeTree(c.g); rod.visible=false; fishLine.visible=false; fishing=null; nextBob=f.received?Math.max(nextBob,30):90+Math.random()*60; return; } }
     c.tail.rotation.y=Math.sin(t*(f.state==='show'?5:11))*0.35;
-    tmp.set(0,0.02,-c.kind.len*0.48); c.g.localToWorld(tmp); setLine(tip,tmp);
+    if(rod.visible){ tmp.set(0,0.02,-c.kind.len*0.48); c.g.localToWorld(tmp); setLine(tip,tmp); }
   }
 }
 function showCatch(f){
-  $('catchTitle').textContent=`${f.kind.name}를 낚았어요!`;
+  $('catchTitle').textContent=f.received?`멀리 배에서 ${f.kind.name}가 날아왔어요!`:`${f.kind.name}를 낚았어요!`;
+  $('giftBtn').hidden=!(netReady&&others.size>0);
   const kid=Math.round(f.size/90*10)/10;
   $('catchSize').textContent=`${f.kind.id==='sunfish'?'키':'길이'} ${f.size}cm · 아이 키의 ${kid}배`;
-  $('catchCount').textContent=`지금까지 ${caughtCount+1}마리째`;
+  $('catchCount').textContent=f.received?'선물 받은 물고기':`지금까지 ${caughtCount+1}마리째`;
   openPanel('catch');
 }
 function releaseCatch(){
   if(!fishing||fishing.state!=='show') return;
-  caughtCount++; store.set('calmsea.catch',String(caughtCount));
-  fishing.state='release'; fishing.t=0; if(!panels.catch.hidden) openPanel(null);
+  if(!fishing.received){ caughtCount++; store.set('calmsea.catch',String(caughtCount)); }
+  picking=false; fishing.state='release'; fishing.t=0; if(!panels.catch.hidden) openPanel(null);
 }
 function soundPlunk(k){ if(!ac||volume===0) return; const now=ac.currentTime;
   const o=ac.createOscillator(); o.type='sine'; o.frequency.setValueAtTime(420,now); o.frequency.exponentialRampToValueAtTime(140,now+0.18);
@@ -845,31 +855,73 @@ const drift=makeBottle(); drift.visible=false; scene.add(drift); drift.traverse(
 const tossed=makeBottle(); tossed.visible=false; scene.add(tossed); tossed.traverse(o=>o.renderOrder=2); // one I just sent off
 let driftLetter=null, tossT=-1, tossFrom=new THREE.Vector3();
 
-/* ---------- other boats on the horizon ---------- */
-const otherHullMat=new THREE.MeshStandardMaterial({color:0x5a6f7a,roughness:0.85});
+/* ---------- other boats: everyone here right now, each with their own little one ---------- */
+const HATS=[0xd6584a,0x3d7dd8,0x3fa36b,0xe0a12b,0x8a5bd1,0xe46aa0,0x2bb3b0];
+const COATS=[0xf2b83a,0xf3efe6,0x8fc3e8,0xf0a3a8,0xb7d98b,0xf6d06b];
 const others=new Map();
 function hash01(str){ let h=2166136261; for(let i=0;i<str.length;i++){ h^=str.charCodeAt(i); h=Math.imul(h,16777619); } return ((h>>>0)%100000)/100000; }
-function addOther(peer){
-  if(others.has(peer)) return;
-  const g=new THREE.Group(); g.add(new THREE.Mesh(hullGeo,otherHullMat));
+function addOther(id){
+  if(others.has(id)||!id) return;
+  const g=new THREE.Group();
+  for(let i=0;i<4&&i<boat.children.length;i++) g.add(boat.children[i].clone());
+  const r=hash01(id), r2=hash01(id+'x'), r3=hash01(id+'y');
+  const kid=makeBuddy(HATS[Math.floor(r2*HATS.length)],COATS[Math.floor(r3*COATS.length)]); kid.g.position.set(0,SEAT_Y,SEAT_Z); g.add(kid.g);
   const glow=new THREE.Sprite(new THREE.SpriteMaterial({map:lampGlowTex,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}));
-  glow.position.set(0.3,1.3,-1.0); glow.renderOrder=3; g.add(glow);
-  const r=hash01(peer), r2=hash01(peer+'x');
-  others.set(peer,{g,glow,ang:r*Math.PI*2,dist:55+r2*70,blink:0,ph:r*10});
-  scene.add(g);
+  glow.position.set(0.3,1.15,-1.05); glow.renderOrder=3; g.add(glow);
+  const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.03,1.0,8),new THREE.MeshStandardMaterial({color:0x6b5038,roughness:0.8}));
+  pole.position.set(0.3,0.68,-1.0); g.add(pole);
+  // spread out in front of and beside me, close enough to see the little one
+  const bearing=(r-0.5)*1.25, dist=13+r2*15;
+  others.set(id,{g,kid,glow,bearing,dist,blink:0,ph:r*10,pick:0});
+  scene.add(g); soundChime(true);
 }
-function removeOther(peer){ const o=others.get(peer); if(!o) return; scene.remove(o.g); o.glow.material.dispose(); others.delete(peer); }
+function removeOther(id){ const o=others.get(id); if(!o) return; scene.remove(o.g); o.glow.material.dispose(); others.delete(id); }
 function updateOthers(dt){
   for(const o of others.values()){
     o.blink=Math.max(0,o.blink-dt);
-    o.g.position.set(boat.position.x+Math.cos(o.ang)*o.dist,-0.2+Math.sin(t*1.0+o.ph)*0.04,boat.position.z+Math.sin(o.ang)*o.dist);
-    o.g.rotation.y=o.ph; o.g.rotation.z=Math.sin(t*0.7+o.ph)*0.03;
+    o.g.position.set(boat.position.x+Math.sin(o.bearing)*o.dist,-0.2+Math.sin(t*1.0+o.ph)*0.04,boat.position.z-Math.cos(o.bearing)*o.dist);
+    o.g.rotation.y=Math.sin(t*0.05+o.ph)*0.25; o.g.rotation.z=Math.sin(t*0.7+o.ph)*0.03;
+    o.kid.head.rotation.y=Math.sin(t*0.13+o.ph)*0.5; o.kid.head.rotation.x=-Math.max(0,Math.sin(t*0.07+o.ph))*0.3;
     const flash=o.blink>0?Math.sin(Math.PI*(1-o.blink/1.6)):0;
-    o.glow.material.opacity=0.35+night*0.5+flash*1.2;
-    o.glow.scale.setScalar(lerp(3,6,night)+flash*10);
+    const pick=picking?0.5+0.5*Math.sin(t*6):0;
+    o.glow.material.opacity=0.35+night*0.5+flash*1.2+pick*0.8;
+    o.glow.scale.setScalar(lerp(1.8,3.2,night)+flash*7+pick*1.5);
   }
   const n=others.size; const el=$('others');
-  el.hidden=n===0; el.textContent=n?`멀리 배 ${n}척`:'';
+  el.hidden=n===0; el.textContent=n?`가까이 배 ${n}척`:'';
+}
+
+/* ---------- gifts: send what you caught to another boat ---------- */
+let picking=false, pickTimer=0;
+function startGift(){
+  if(!fishing||fishing.state!=='show'||!others.size) return;
+  if(others.size===1){ sendGiftTo([...others.keys()][0]); return; }
+  picking=true; pickTimer=12; fishing.t=0; openPanel(null); toast('선물할 배를 눌러주세요');
+}
+function sendGiftTo(id){
+  const o=others.get(id); if(!fishing||fishing.state!=='show'||!o) return;
+  picking=false; const f=fishing;
+  f.state='gift'; f.t=0; f.to=id; f.from0=f.c.g.position.clone(); f.dest=o.g.position.clone();
+  rod.visible=false; fishLine.visible=false; openPanel(null);
+  caughtCount++; store.set('calmsea.catch',String(caughtCount));
+  netGift(id,{kind:f.kind.id,size:f.size});
+  soundSplash(0.4); toast(`${f.kind.name}를 보냈어요`);
+}
+const giftQueue=[];
+function receiveGift(fromId,data){
+  const kind=CATCHES.find(k=>k&&k.id===data.kind); if(!kind) return;
+  const size=clamp(Math.round(+data.size||kind.min),kind.min,kind.max);
+  giftQueue.push({fromId,kind,size});
+}
+function startIncoming(){
+  if(!giftQueue.length||fishing&&fishing.state!=='float') return;
+  if(fishing&&fishing.state==='float'){ bobber.visible=false; $('fishPill').classList.add('fade'); }
+  const gq=giftQueue.shift(), o=others.get(gq.fromId);
+  const src=o?o.g.position.clone():new THREE.Vector3(boat.position.x+12,0,boat.position.z-20);
+  src.y=0.8;
+  const c=makeCatch(gq.kind); scene.add(c.g);
+  fishing={state:'incoming',t:0,side:src.x>boat.position.x?1:-1,kind:gq.kind,size:gq.size,c,src,received:true};
+  soundChime(true);
 }
 
 /* ---------- camera: drag to look around, drag down to look up into the sky ---------- */
@@ -892,6 +944,7 @@ canvas.addEventListener('wheel',e=>{ e.preventDefault(); zoom=clamp(zoom*(1+e.de
 const ray=new THREE.Raycaster(), ndc=new THREE.Vector2();
 function onTap(x,y){
   ndc.set(x/innerWidth*2-1,-(y/innerHeight)*2+1); ray.setFromCamera(ndc,camera);
+  if(picking){ for(const [id,o] of others){ if(ray.intersectObject(o.g,true).length){ sendGiftTo(id); return; } } return; }
   if(drift.visible && ray.intersectObject(drift,true).length) openDrift();
   else if(fishing&&fishing.state==='float'&&bobber.visible&&ray.intersectObject(bobber,true).length) startCast();
 }
@@ -952,10 +1005,10 @@ function soundChime(far){ if(!ac||volume===0) return; const now=ac.currentTime;
 
 /* ---------- loop ---------- */
 const SPEED=0.85;
-let t=0, last=performance.now(), skyTimer=0, started=false, bottleTimer=45;
+let t=0, rdt=0, last=performance.now(), skyTimer=0, started=false, bottleTimer=45;
 updateSky();
 function frame(now){
-  const dt=Math.min(0.05,(now-last)/1000); last=now; t+=dt;
+  const raw=(now-last)/1000, dt=Math.min(0.05,raw); rdt=Math.min(0.5,raw); last=now; t+=dt;
   skyTimer-=dt; if(skyTimer<=0){ updateSky(); skyTimer=20; }
 
   boat.position.z-=SPEED*dt;
@@ -980,7 +1033,7 @@ function frame(now){
   U.uLanternI.value=night*1.0+flash*1.4;
   myGlow.material.opacity=night*0.55+flash; myGlow.scale.setScalar(1.6+flash*2.5);
 
-  emitWake(dt); updateFoam(dt); updateJumper(dt); updatePod(); updateSurfacer(dt); updateMeteor(dt); updateEncounter(dt); updateMist(dt); updateFishing(dt); updateOthers(dt);
+  emitWake(dt); updateFoam(dt); updateJumper(dt); updatePod(); updateSurfacer(dt); updateMeteor(dt); updateEncounter(dt); updateMist(dt); updateFishing(dt); startIncoming(); updateOthers(dt);
   updateBottles(dt);
   updateCamera(dt);
   renderer.render(scene,camera);
@@ -1001,6 +1054,7 @@ function toast(msg){ const el=$('toast'); el.textContent=msg; el.classList.remov
 canvas.addEventListener('pointerdown',()=>{ if(!panels.read.hidden||!panels.catch.hidden) return; openPanel(null); });
 $('fishPill').addEventListener('click',startCast);
 $('releaseBtn').addEventListener('click',releaseCatch);
+$('giftBtn').addEventListener('click',startGift);
 
 $('soundBtn').addEventListener('click',()=>openPanel(panels.sound.hidden?'sound':null));
 const vol=$('vol');
@@ -1009,20 +1063,28 @@ function applyVol(){ volume=vol.value/100; $('volOut').value=vol.value; $('spkOn
   if(master) master.gain.setTargetAtTime(gainFor(volume),ac.currentTime,0.2); }
 vol.addEventListener('input',applyVol); vol.addEventListener('change',()=>store.set('calmsea.vol',vol.value)); applyVol();
 
-/* ---------- shared sea: room for boats and blinks, db for bottles ---------- */
-let room=null, db=null, myId=null;
+/* ---------- shared sea ----------
+   Inside Claude the page talks through the artifact's room and db.
+   Anywhere else (GitHub Pages) it talks through Firebase, when a config is filled in below. */
+const FIREBASE_CONFIG = {"apiKey": "AIzaSyBJq2ffhQCe31Cg8lmw4lx1m6kS-m9j8vI", "authDomain": "clam-ocean.firebaseapp.com", "databaseURL": "https://clam-ocean-default-rtdb.asia-southeast1.firebasedatabase.app", "projectId": "clam-ocean", "storageBucket": "clam-ocean.firebasestorage.app", "messagingSenderId": "501227064932", "appId": "1:501227064932:web:f557bf8768f103856a1971"};
+let room=null, db=null, myId=null, myPeer=null, netReady=false, fb=null;
+let netBlink=()=>{}, netGift=()=>{}, netBottle=null, netJoin=()=>{};
 function blinkMine(){ myBlink=1.6; soundChime(false); }
-$('lampBtn').addEventListener('click',()=>{ blinkMine(); if(room&&room.connected()) room.emit('blink',{}).catch(()=>{}); });
+$('lampBtn').addEventListener('click',()=>{ blinkMine(); netBlink(); });
+function onBlinkFrom(id){ const o=others.get(id); if(o){ o.blink=1.6; soundChime(true); } }
 
-async function connectShared(){
-  const cl=window.claude; if(!cl||!cl.use) return;
-  cl.use('room').then(r=>{ if(!r) return; room=r;
-    const sync=ch=>{ for(const p of ch.peers){ if(!p.sameTab&&p.kind==='viewer'&&p.presence&&p.presence.boat) addOther(p.peer); }
+async function connectClaude(cl){
+  cl.use('room').then(r=>{ if(!r) return; room=r; netReady=true;
+    const sync=ch=>{ for(const p of ch.peers){ if(p.sameTab){ myPeer=p.peer; continue; } if(p.kind==='viewer'&&p.presence&&p.presence.boat) addOther(p.peer); }
       for(const p of ch.left) removeOther(p.peer);
-      for(const peer of [...others.keys()]) if(!ch.peers.some(p=>p.peer===peer)) removeOther(peer); };
+      for(const id of [...others.keys()]) if(!ch.peers.some(p=>p.peer===id)) removeOther(id); };
     room.onPeers(sync,()=>{});
-    room.on('blink',msg=>{ if(msg.sameTab) return; const o=others.get(msg.peer); if(o){ o.blink=1.6; soundChime(true); } },()=>{});
-    if(started) room.presence({boat:1}).catch(()=>{});
+    room.on('blink',msg=>{ if(!msg.sameTab) onBlinkFrom(msg.peer); },()=>{});
+    room.on('gift',msg=>{ if(msg.sameTab||!msg.data||msg.data.to!==myPeer) return; receiveGift(msg.peer,msg.data); },()=>{});
+    netBlink=()=>{ if(room.connected()) room.emit('blink',{}).catch(()=>{}); };
+    netGift=(to,g)=>{ room.emit('gift',{to,kind:g.kind,size:g.size}).catch(()=>{}); };
+    netJoin=()=>room.presence({boat:1}).catch(()=>{});
+    if(started) netJoin();
   });
   const [d,u]=await Promise.all([cl.use('db'),cl.use('user')]);
   if(!d) return; db=d;
@@ -1030,6 +1092,42 @@ async function connectShared(){
   let canWrite=true; if(u){ try{ const c=await u.can('data.write'); if(c===false) canWrite=false; }catch(_){} }
   $('bottleBtn').hidden=!canWrite;
   db.collection('bottles').orderBy('at','desc').limit(80).onSnapshot(snap=>{ letters=snap.docs.map(s=>({id:s.id,...s.data()})); },()=>{});
+  netBottle=async text=>{ const ref=db.collection('bottles').doc(); readSet.add(ref.id); await ref.set({text,at:Date.now(),by:myId||null}); };
+}
+
+async function connectFirebase(cfg){
+  const V='10.12.2';
+  const appM=await import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`);
+  const D=await import(`https://www.gstatic.com/firebasejs/${V}/firebase-database.js`);
+  const fdb=D.getDatabase(appM.initializeApp(cfg));
+  myId='b'+Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);
+  const seen=new Map();
+  const fresh=v=>v&&typeof v.at==='number'&&Date.now()-v.at<180000;
+  const boats=D.ref(fdb,'boats');
+  const onBoat=snap=>{ if(snap.key===myId) return; const v=snap.val(); seen.set(snap.key,Date.now()); if(fresh(v)) addOther(snap.key); };
+  D.onChildAdded(boats,onBoat); D.onChildChanged(boats,onBoat);
+  D.onChildRemoved(boats,snap=>removeOther(snap.key));
+  setInterval(()=>{ for(const id of [...others.keys()]) if(Date.now()-(seen.get(id)||0)>200000) removeOther(id); },30000);
+  const me=D.ref(fdb,'boats/'+myId);
+  netJoin=()=>{ D.set(me,{at:D.serverTimestamp()}).catch(()=>{}); D.onDisconnect(me).remove();
+    D.onDisconnect(D.ref(fdb,'blinks/'+myId)).remove(); D.onDisconnect(D.ref(fdb,'gifts/'+myId)).remove();
+    setInterval(()=>D.set(me,{at:D.serverTimestamp()}).catch(()=>{}),60000); };
+  const blinks=D.ref(fdb,'blinks');
+  const onB=snap=>{ const v=snap.val(); if(snap.key!==myId&&v&&Date.now()-v.at<15000) onBlinkFrom(snap.key); };
+  D.onChildAdded(blinks,onB); D.onChildChanged(blinks,onB);
+  netBlink=()=>{ D.set(D.ref(fdb,'blinks/'+myId),{at:D.serverTimestamp()}).catch(()=>{}); };
+  D.onChildAdded(D.ref(fdb,'gifts/'+myId),snap=>{ const v=snap.val(); D.remove(snap.ref).catch(()=>{}); if(v&&v.from) receiveGift(v.from,v); });
+  netGift=(to,g)=>{ D.push(D.ref(fdb,'gifts/'+to),{from:myId,kind:g.kind,size:g.size,at:D.serverTimestamp()}).catch(()=>{}); };
+  D.onValue(D.query(D.ref(fdb,'bottles'),D.orderByChild('at'),D.limitToLast(80)),snap=>{ const a=[]; snap.forEach(c=>{ a.push({id:c.key,...c.val()}); }); letters=a; });
+  netBottle=async text=>{ const ref=D.push(D.ref(fdb,'bottles')); readSet.add(ref.key); await D.set(ref,{text,at:D.serverTimestamp(),by:myId}); };
+  $('bottleBtn').hidden=false; netReady=true;
+  if(started) netJoin();
+}
+async function connectShared(){
+  // inside Claude, window.claude answers within a moment; elsewhere it never appears
+  const cl=window.claude;
+  if(cl&&cl.use){ connectClaude(cl); return; }
+  if(FIREBASE_CONFIG&&FIREBASE_CONFIG.databaseURL){ try{ await connectFirebase(FIREBASE_CONFIG); }catch(_){ } }
 }
 let letters=[];
 const readSet=new Set((store.get('calmsea.read')||'').split(',').filter(Boolean));
@@ -1038,7 +1136,7 @@ function pickLetter(){
   if(!pool.length) return null; return pool[Math.floor(Math.random()*pool.length)];
 }
 function updateBottles(dt){
-  if(started&&!drift.visible){ bottleTimer-=dt;
+  if(started&&!drift.visible){ bottleTimer-=rdt;
     if(bottleTimer<=0){ bottleTimer=240+Math.random()*180; const l=pickLetter();
       if(l){ driftLetter=l; drift.visible=true; drift.position.set(boat.position.x+(Math.random()<.5?-1:1)*(1.6+Math.random()*0.6),0,boat.position.z-14); } } }
   if(drift.visible){
@@ -1070,11 +1168,10 @@ const input=$('letterInput');
 input.addEventListener('input',()=>{ $('letterCount').textContent=`${input.value.length} / 80`; $('sendLetter').disabled=!input.value.trim(); });
 let sending=false;
 $('sendLetter').addEventListener('click',async()=>{
-  const text=input.value.trim().slice(0,80); if(!text||!db||sending) return;
+  const text=input.value.trim().slice(0,80); if(!text||!netBottle||sending) return;
   sending=true; $('sendLetter').disabled=true;
   try{
-    const ref=db.collection('bottles').doc(); readSet.add(ref.id);
-    await ref.set({text,at:Date.now(),by:myId||null});
+    await netBottle(text);
     store.set('calmsea.read',[...readSet].slice(-200).join(','));
     input.value=''; $('letterCount').textContent='0 / 80'; openPanel(null);
     tossFrom.set(boat.position.x+0.4,0.9,boat.position.z+SEAT_Z); tossT=0; soundSplash(0.4);
@@ -1090,7 +1187,7 @@ $('board').addEventListener('click',()=>{
   try{ initAudio(); if(ac&&ac.state==='suspended') ac.resume(); }catch(_){}
   $('intro').classList.add('fade'); $('dock').classList.remove('fade'); $('where').classList.remove('fade');
   const hint=$('hint'); hint.classList.remove('fade'); setTimeout(()=>hint.classList.add('fade'),7000);
-  if(room) room.presence({boat:1}).catch(()=>{});
+  netJoin();
   try{ navigator.wakeLock&&navigator.wakeLock.request('screen').catch(()=>{}); }catch(_){}
 });
 addEventListener('pagehide',()=>store.set('calmsea.dist',travelled.toFixed(1)));
