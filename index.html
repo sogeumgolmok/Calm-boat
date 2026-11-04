@@ -47,6 +47,7 @@ body{background:var(--night);color:var(--ink);font-family:var(--body);overflow:h
 .vol input{flex:1;min-width:0;accent-color:var(--lamp)}
 .vol output{width:3ch;text-align:right;font-variant-numeric:tabular-nums;font-size:12px;color:var(--ink-soft)}
 .credit{font-size:11px;line-height:1.6;color:var(--ink-soft);border-top:1px solid var(--glass-line);padding-top:10px}
+.panel input[type=text]{width:100%;box-sizing:border-box;border-radius:12px;padding:10px 12px;font:16px var(--body);color:var(--ink);background:rgba(244,239,230,.08);border:1px solid var(--glass-line);-webkit-user-select:text;user-select:text}
 .panel textarea{width:100%;box-sizing:border-box;min-height:84px;resize:none;border-radius:12px;padding:10px 12px;
   font:15px/1.6 var(--body);color:var(--ink);background:rgba(244,239,230,.08);border:1px solid var(--glass-line);-webkit-user-select:text;user-select:text}
 .row{display:flex;justify-content:space-between;align-items:center;gap:10px}
@@ -100,7 +101,7 @@ body{background:var(--night);color:var(--ink);font-family:var(--body);overflow:h
 
 <div class="hint fade" id="hint">끌어서 둘러보고, 아래로 끌면 하늘이 보여요</div>
 <button class="pill fade" id="bottlePill" type="button" tabindex="-1" style="top:calc(168px + env(safe-area-inset-top,0px))">유리병이 떠내려왔어요 · 건져 올리기</button>
-<button class="pill fade" id="fishPill" type="button" tabindex="-1" style="top:calc(118px + env(safe-area-inset-top,0px))">찌가 떠 있어요 · 낚싯대 내리기</button>
+<button class="pill fade" id="fishPill" type="button" tabindex="-1" style="top:calc(118px + env(safe-area-inset-top,0px))">물고기가 있나 봐요! 낚싯대 내리기</button>
 <div class="toast fade" id="toast"></div>
 
 <div class="panel" id="soundPanel" hidden>
@@ -131,7 +132,17 @@ body{background:var(--night);color:var(--ink);font-family:var(--body);overflow:h
   <div class="row"><span class="count" id="catchCount"></span><span class="row" style="gap:8px"><button class="btn quiet" id="giftBtn" type="button" hidden>선물하기</button><button class="btn" id="releaseBtn" type="button">놓아주기</button></span></div>
 </div>
 
+<div class="panel" id="shoutPanel" hidden>
+  <h2>하늘에 외치기</h2>
+  <p>지금 마음속의 그 한마디.<br>하늘에 외쳐 보아요.</p>
+  <input id="shoutInput" type="text" maxlength="10" placeholder="여기 누구 있어요?" autocomplete="off" aria-label="하늘에 외칠 말">
+  <div class="row"><span class="count" id="shoutCount">0 / 10</span><button class="btn" id="sendShout" type="button" disabled>외치기</button></div>
+</div>
+
 <div class="dock fade" id="dock">
+  <button class="round" id="shoutBtn" type="button" aria-label="하늘에 외치기" aria-expanded="false">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5v3.5M12 18v3.5M2.5 12H6M18 12h3.5M5.3 5.3l2.5 2.5M16.2 16.2l2.5 2.5M5.3 18.7l2.5-2.5M16.2 7.8l2.5-2.5"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/></svg>
+  </button>
   <button class="round" id="bottleBtn" type="button" aria-label="유리병 편지 쓰기" aria-expanded="false" hidden>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2.5h4M10.5 2.5v4.2c0 .8-.4 1.4-1 1.9C8 9.8 7.5 11 7.5 12.6V19a2.5 2.5 0 0 0 2.5 2.5h4a2.5 2.5 0 0 0 2.5-2.5v-6.4c0-1.6-.5-2.8-2-4-.6-.5-1-1.1-1-1.9V2.5"/><path d="M10 14h4M10 16.8h3"/></svg>
   </button>
@@ -822,8 +833,7 @@ function updateFishing(dt){
 function showCatch(f){
   $('catchTitle').textContent=f.received?`멀리 배에서 ${f.kind.name}가 날아왔어요!`:`${f.kind.name}를 낚았어요!`;
   $('giftBtn').hidden=!(netReady&&others.size>0);
-  const kid=Math.round(f.size/90*10)/10;
-  $('catchSize').textContent=`${f.kind.id==='sunfish'?'키':'길이'} ${f.size}cm · 아이 키의 ${kid}배`;
+  $('catchSize').textContent=`${f.kind.id==='sunfish'?'키':'길이'} ${f.size}cm`;
   $('catchCount').textContent=f.received?'선물 받은 물고기':`지금까지 ${caughtCount+1}마리째`;
   openPanel('catch');
 }
@@ -923,6 +933,111 @@ function startIncoming(){
   fishing={state:'incoming',t:0,side:src.x>boat.position.x?1:-1,kind:gq.kind,size:gq.size,c,src,received:true};
   soundChime(true);
 }
+
+/* ---------- shouting to the sky: fireworks, then the words drift down ---------- */
+const SHOUT_MAX=10, SHOUT_GAP=180000;
+const BAD=['시발','씨발','씨바','시바','ㅅㅂ','ㅆㅂ','병신','ㅂㅅ','좆','존나','졸라','개새','새끼','미친','꺼져','닥쳐','썅','엿먹','지랄','느금','니애미','애미','애비','섹스','fuck','shit','bitch','sex','dick'];
+function cleanShout(text){
+  const t=String(text||'').replace(/[\u0000-\u001f\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff]/g,'').trim().slice(0,SHOUT_MAX);
+  if(!t) return null;
+  const flat=t.toLowerCase().replace(/[\s.,!?~*_\-^:;'"`·]+/g,'');
+  return BAD.some(w=>flat.includes(w))?null:t;
+}
+const shouts=[];
+function charTex(ch,isNight){
+  const c=document.createElement('canvas'); c.width=c.height=160; const g=c.getContext('2d');
+  g.font='700 112px "Gowun Batang","Nanum Myeongjo",serif'; g.textAlign='center'; g.textBaseline='middle';
+  if(isNight){ g.shadowColor='rgba(255,190,90,.95)'; g.shadowBlur=26; g.fillStyle='#fff1c9'; g.fillText(ch,80,86); g.shadowBlur=8; g.fillText(ch,80,86); }
+  else { g.lineJoin='round'; g.shadowColor='rgba(30,60,100,.35)'; g.shadowBlur=12; g.lineWidth=16; g.strokeStyle='#fffaf2'; g.strokeText(ch,80,86); g.shadowBlur=0; g.fillStyle='#d6584a'; g.fillText(ch,80,86); }
+  const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; return t;
+}
+function burst(center,isNight,n,speed,hue){
+  const pos=new Float32Array(n*3), col=new Float32Array(n*3), vel=[], c=new THREE.Color();
+  for(let i=0;i<n;i++){
+    const u=Math.random()*2-1, a=Math.random()*Math.PI*2, r=Math.sqrt(1-u*u), sp=speed*(0.75+Math.random()*0.35);
+    vel.push(new THREE.Vector3(r*Math.cos(a)*sp,u*sp,r*Math.sin(a)*sp));
+    pos[i*3]=center.x; pos[i*3+1]=center.y; pos[i*3+2]=center.z;
+    if(Math.random()<0.25) c.setRGB(1,0.97,0.9); else c.setHSL((hue+(Math.random()-0.5)*0.12+1)%1,isNight?0.9:0.8,isNight?0.65:0.55);
+    col[i*3]=c.r; col[i*3+1]=c.g; col[i*3+2]=c.b;
+  }
+  const geo=new THREE.BufferGeometry(); geo.setAttribute('position',new THREE.BufferAttribute(pos,3)); geo.setAttribute('color',new THREE.BufferAttribute(col,3));
+  const mat=new THREE.PointsMaterial({size:isNight?3.4:4.2,sizeAttenuation:false,vertexColors:true,transparent:true,depthWrite:false,
+    blending:isNight?THREE.AdditiveBlending:THREE.NormalBlending,toneMapped:false});
+  const pts=new THREE.Points(geo,mat); pts.frustumCulled=false; pts.renderOrder=4; scene.add(pts);
+  return {pts,vel,age:0,life:2.8};
+}
+const camRight=new THREE.Vector3(), camFwd=new THREE.Vector3();
+function launchShout(text){
+  const isNight=night>0.45, dome=pitch>0.35;
+  camera.updateMatrixWorld(); camRight.setFromMatrixColumn(camera.matrixWorld,0).normalize();
+  camera.getWorldDirection(camFwd);
+  // aim through a point in the upper part of the screen, so it is in view however the camera is turned
+  const dist=110; ray.setFromCamera(ndc.set(0,dome?0.15:0.5),camera);
+  const rel=ray.ray.direction.clone().multiplyScalar(dist).add(camera.position).sub(boat.position);
+  if(!dome) rel.y=Math.max(rel.y,12);
+  const hfov=2*Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov/2))*camera.aspect);
+  const chars=[...text], size=Math.min(9,0.72*2*dist*Math.tan(hfov/2)/Math.max(chars.length,3));
+  const hue=Math.random();
+  const sh={rel,t:0,isNight,size,bursts:[],sprites:[],right:camRight.clone(),hue};
+  chars.forEach((ch,i)=>{
+    const m=new THREE.SpriteMaterial({map:charTex(ch,isNight),transparent:true,depthWrite:false,opacity:0,
+      blending:isNight?THREE.AdditiveBlending:THREE.NormalBlending,toneMapped:false});
+    const s=new THREE.Sprite(m); s.renderOrder=5; s.scale.setScalar(size); scene.add(s);
+    sh.sprites.push({s,off:(i-(chars.length-1)/2)*size*0.92,vy:0,dx:0,ph:Math.random()*6.28,delay:0.15*i+Math.random()*0.2});
+  });
+  shouts.push(sh); soundFirework();
+}
+const shoutC=new THREE.Vector3();
+function updateShouts(dt){
+  for(let k=shouts.length-1;k>=0;k--){ const sh=shouts[k]; sh.t+=dt; const T=sh.t;
+    shoutC.copy(boat.position).add(sh.rel);
+    if(sh.bursts.length===0&&T>0.05) sh.bursts.push(burst(shoutC,sh.isNight,170,24,sh.hue));
+    if(sh.bursts.length===1&&T>0.35) sh.bursts.push(burst(shoutC.clone().addScaledVector(sh.right,-14).add(new THREE.Vector3(0,6,0)),sh.isNight,90,16,(sh.hue+0.33)%1));
+    if(sh.bursts.length===2&&T>0.6) sh.bursts.push(burst(shoutC.clone().addScaledVector(sh.right,15).add(new THREE.Vector3(0,-4,0)),sh.isNight,90,16,(sh.hue+0.66)%1));
+    for(const b of sh.bursts){ if(!b.pts.visible) continue; b.age+=dt; const p=b.pts.geometry.attributes.position;
+      for(let i=0;i<b.vel.length;i++){ const v=b.vel[i]; v.multiplyScalar(Math.exp(-dt*1.6)); v.y-=dt*(sh.isNight?5:3.2);
+        p.setXYZ(i,p.getX(i)+v.x*dt,p.getY(i)+v.y*dt,p.getZ(i)+v.z*dt-SPEED*dt); }
+      p.needsUpdate=true; const kk=b.age/b.life; b.pts.material.opacity=Math.max(0,1-kk*kk)*(0.75+0.25*Math.sin(b.age*30));
+      if(kk>=1){ b.pts.visible=false; scene.remove(b.pts); b.pts.geometry.dispose(); b.pts.material.dispose(); } }
+    for(const c of sh.sprites){
+      const pop=smooth(0.15,0.55,T), over=1+Math.sin(Math.PI*clamp((T-0.15)/0.5,0,1))*0.18;
+      const fallT=T-3.2-c.delay;
+      if(fallT>0){ c.vy=Math.min(c.vy+dt*1.4,2.2); c.dx=Math.sin(fallT*1.8+c.ph)*2.2; }
+      c.s.position.copy(shoutC).addScaledVector(sh.right,c.off+c.dx); c.s.position.y-=(fallT>0?(c.vy*fallT*0.5+fallT*0.4):Math.sin(T*1.2+c.ph)*-0.3);
+      c.s.material.rotation=fallT>0?Math.sin(fallT*1.3+c.ph)*0.5:0;
+      c.s.scale.setScalar(sh.size*pop*over);
+      c.s.material.opacity=pop*(fallT>0?Math.max(0,1-fallT/4.2):1);
+    }
+    if(T>8.6){ for(const c of sh.sprites){ scene.remove(c.s); c.s.material.map.dispose(); c.s.material.dispose(); } shouts.splice(k,1); }
+  }
+}
+function soundFirework(){ if(!ac||volume===0) return; const now=ac.currentTime+0.25;
+  const o=ac.createOscillator(); o.type='sine'; o.frequency.setValueAtTime(140,now); o.frequency.exponentialRampToValueAtTime(48,now+0.35);
+  const g=ac.createGain(); g.gain.setValueAtTime(0.0001,now); g.gain.exponentialRampToValueAtTime(0.11,now+0.01); g.gain.exponentialRampToValueAtTime(0.0001,now+0.45);
+  o.connect(g).connect(master); o.start(now); o.stop(now+0.5);
+  for(let i=0;i<16;i++){ const at=now+0.15+Math.random()*1.3; const s=ac.createBufferSource(); s.buffer=noiseBuf;
+    const f=ac.createBiquadFilter(); f.type='highpass'; f.frequency.value=3500+Math.random()*2500;
+    const gg=ac.createGain(); gg.gain.setValueAtTime(0.0001,at); gg.gain.exponentialRampToValueAtTime(0.018+Math.random()*0.02,at+0.003); gg.gain.exponentialRampToValueAtTime(0.0001,at+0.03);
+    s.connect(f).connect(gg).connect(master); s.start(at,Math.random()*3); s.stop(at+0.04); } }
+
+/* the panel */
+let lastShout=parseInt(store.get('calmsea.shout'),10)||0;
+function shoutWait(){ return Math.max(0,SHOUT_GAP-(Date.now()-lastShout)); }
+function refreshShoutPanel(){
+  const w=shoutWait(), inp=$('shoutInput');
+  $('shoutCount').textContent=w>0?`다음 외치기까지 ${Math.floor(w/60000)}:${String(Math.floor(w/1000)%60).padStart(2,'0')}`:`${[...inp.value].length} / ${SHOUT_MAX}`;
+  $('sendShout').disabled=w>0||!inp.value.trim();
+}
+setInterval(()=>{ if(!panels.shout.hidden) refreshShoutPanel(); },1000);
+function doShout(){
+  if(shoutWait()>0) return;
+  const text=cleanShout($('shoutInput').value);
+  if(!text){ toast('그 말은 하늘에 띄울 수 없어요'); return; }
+  lastShout=Date.now(); store.set('calmsea.shout',String(lastShout));
+  $('shoutInput').value=''; openPanel(null);
+  launchShout(text); blinkMine(); netShout(text);
+}
+function onShoutFrom(id,text){ const t=cleanShout(text); if(!t) return; launchShout(t); onBlinkFrom(id); }
 
 /* ---------- camera: drag to look around, drag down to look up into the sky ---------- */
 let yaw=0, pitch=-0.5, zoom=3.8, vYaw=0, vPitch=0;
@@ -1033,7 +1148,7 @@ function frame(now){
   U.uLanternI.value=night*1.0+flash*1.4;
   myGlow.material.opacity=night*0.55+flash; myGlow.scale.setScalar(1.6+flash*2.5);
 
-  emitWake(dt); updateFoam(dt); updateJumper(dt); updatePod(); updateSurfacer(dt); updateMeteor(dt); updateEncounter(dt); updateMist(dt); updateFishing(dt); startIncoming(); updateOthers(dt);
+  emitWake(dt); updateFoam(dt); updateJumper(dt); updatePod(); updateSurfacer(dt); updateMeteor(dt); updateEncounter(dt); updateMist(dt); updateFishing(dt); startIncoming(); updateShouts(dt); updateOthers(dt);
   updateBottles(dt);
   updateCamera(dt);
   renderer.render(scene,camera);
@@ -1043,11 +1158,12 @@ requestAnimationFrame(frame);
 ready.then(()=>{ $('loading').hidden=true; });
 
 /* ---------- panels ---------- */
-const panels={sound:$('soundPanel'),write:$('writePanel'),read:$('readPanel'),catch:$('catchPanel')};
+const panels={sound:$('soundPanel'),write:$('writePanel'),read:$('readPanel'),catch:$('catchPanel'),shout:$('shoutPanel')};
 function openPanel(name){
   for(const [k,el] of Object.entries(panels)) el.hidden=k!==name;
   $('soundBtn').setAttribute('aria-expanded',String(name==='sound'));
   $('bottleBtn').setAttribute('aria-expanded',String(name==='write'));
+  $('shoutBtn').setAttribute('aria-expanded',String(name==='shout'));
 }
 let toastTimer=0;
 function toast(msg){ const el=$('toast'); el.textContent=msg; el.classList.remove('fade'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.classList.add('fade'),2600); }
@@ -1055,6 +1171,10 @@ canvas.addEventListener('pointerdown',()=>{ if(!panels.read.hidden||!panels.catc
 $('fishPill').addEventListener('click',startCast);
 $('releaseBtn').addEventListener('click',releaseCatch);
 $('giftBtn').addEventListener('click',startGift);
+$('shoutBtn').addEventListener('click',()=>{ openPanel(panels.shout.hidden?'shout':null); if(!panels.shout.hidden){ refreshShoutPanel(); if(shoutWait()===0) setTimeout(()=>$('shoutInput').focus(),50); } });
+$('shoutInput').addEventListener('input',refreshShoutPanel);
+$('shoutInput').addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.isComposing){ e.preventDefault(); if(!$('sendShout').disabled) doShout(); } });
+$('sendShout').addEventListener('click',doShout);
 
 $('soundBtn').addEventListener('click',()=>openPanel(panels.sound.hidden?'sound':null));
 const vol=$('vol');
@@ -1068,7 +1188,7 @@ vol.addEventListener('input',applyVol); vol.addEventListener('change',()=>store.
    Anywhere else (GitHub Pages) it talks through Firebase, when a config is filled in below. */
 const FIREBASE_CONFIG = {"apiKey": "AIzaSyBJq2ffhQCe31Cg8lmw4lx1m6kS-m9j8vI", "authDomain": "clam-ocean.firebaseapp.com", "databaseURL": "https://clam-ocean-default-rtdb.asia-southeast1.firebasedatabase.app", "projectId": "clam-ocean", "storageBucket": "clam-ocean.firebasestorage.app", "messagingSenderId": "501227064932", "appId": "1:501227064932:web:f557bf8768f103856a1971"};
 let room=null, db=null, myId=null, myPeer=null, netReady=false, fb=null;
-let netBlink=()=>{}, netGift=()=>{}, netBottle=null, netJoin=()=>{};
+let netBlink=()=>{}, netGift=()=>{}, netBottle=null, netJoin=()=>{}, netShout=()=>{};
 function blinkMine(){ myBlink=1.6; soundChime(false); }
 $('lampBtn').addEventListener('click',()=>{ blinkMine(); netBlink(); });
 function onBlinkFrom(id){ const o=others.get(id); if(o){ o.blink=1.6; soundChime(true); } }
@@ -1079,7 +1199,8 @@ async function connectClaude(cl){
       for(const p of ch.left) removeOther(p.peer);
       for(const id of [...others.keys()]) if(!ch.peers.some(p=>p.peer===id)) removeOther(id); };
     room.onPeers(sync,()=>{});
-    room.on('blink',msg=>{ if(!msg.sameTab) onBlinkFrom(msg.peer); },()=>{});
+    room.on('blink',msg=>{ if(msg.sameTab) return; if(msg.data&&typeof msg.data.shout==='string') onShoutFrom(msg.peer,msg.data.shout); else onBlinkFrom(msg.peer); },()=>{});
+    netShout=text=>{ if(room.connected()) room.emit('blink',{shout:text}).catch(()=>{}); };
     room.on('gift',msg=>{ if(msg.sameTab||!msg.data||msg.data.to!==myPeer) return; receiveGift(msg.peer,msg.data); },()=>{});
     netBlink=()=>{ if(room.connected()) room.emit('blink',{}).catch(()=>{}); };
     netGift=(to,g)=>{ room.emit('gift',{to,kind:g.kind,size:g.size}).catch(()=>{}); };
@@ -1113,7 +1234,8 @@ async function connectFirebase(cfg){
     D.onDisconnect(D.ref(fdb,'blinks/'+myId)).remove(); D.onDisconnect(D.ref(fdb,'gifts/'+myId)).remove();
     setInterval(()=>D.set(me,{at:D.serverTimestamp()}).catch(()=>{}),60000); };
   const blinks=D.ref(fdb,'blinks');
-  const onB=snap=>{ const v=snap.val(); if(snap.key!==myId&&v&&Date.now()-v.at<15000) onBlinkFrom(snap.key); };
+  const onB=snap=>{ const v=snap.val(); if(snap.key===myId||!v||Date.now()-v.at>=15000) return; if(typeof v.shout==='string') onShoutFrom(snap.key,v.shout); else onBlinkFrom(snap.key); };
+  netShout=text=>{ D.set(D.ref(fdb,'blinks/'+myId),{at:D.serverTimestamp(),shout:text}).catch(()=>{}); };
   D.onChildAdded(blinks,onB); D.onChildChanged(blinks,onB);
   netBlink=()=>{ D.set(D.ref(fdb,'blinks/'+myId),{at:D.serverTimestamp()}).catch(()=>{}); };
   D.onChildAdded(D.ref(fdb,'gifts/'+myId),snap=>{ const v=snap.val(); D.remove(snap.ref).catch(()=>{}); if(v&&v.from) receiveGift(v.from,v); });
