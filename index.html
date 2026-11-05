@@ -38,6 +38,11 @@ body{background:var(--night);color:var(--ink);font-family:var(--body);overflow:h
 .round[aria-expanded="true"]{background:var(--glass-strong)}
 .round:focus-visible,.panel button:focus-visible,.board:focus-visible,.pill:focus-visible,.panel textarea:focus-visible,.panel input:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
 
+.radar{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));right:max(14px, env(safe-area-inset-right,0px));width:84px;height:84px;pointer-events:none;transition:opacity 1.2s}
+.round.wide{width:auto;min-width:46px;padding:0 15px;border-radius:23px;font:13px var(--body);letter-spacing:.02em;white-space:nowrap}
+.panel .q{font-family:var(--display);font-size:16px;line-height:1.6;color:var(--ink)}
+.panel .care{font-size:12.5px;line-height:1.7;color:var(--ink);background:rgba(255,199,122,.14);border:1px solid rgba(255,199,122,.4);border-radius:12px;padding:10px 12px}
+.linkbtn{background:none;border:0;padding:0;font:12px var(--body);color:var(--ink-soft);text-decoration:underline;cursor:pointer}
 .panel{position:fixed;right:max(16px, env(safe-area-inset-right,0px));bottom:calc(74px + env(safe-area-inset-bottom,0px));
   width:min(300px, calc(100vw - 32px));box-sizing:border-box;padding:16px;border-radius:18px;display:grid;gap:12px;
   background:var(--glass-strong);border:1px solid var(--glass-line);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
@@ -83,6 +88,7 @@ body{background:var(--night);color:var(--ink);font-family:var(--body);overflow:h
 
 <canvas id="sea" aria-label="하늘색 바다 위를 천천히 떠가는 작은 배와 그 위에 앉은 아이, 배 밑을 따라오는 돌고래들"></canvas>
 
+<canvas class="radar fade" id="radar" width="168" height="168" aria-hidden="true"></canvas>
 <div class="where fade" id="where">
   <span class="sea-name" id="sailTime">항해 시간 0:00</span>
   <span id="dist">항해한 거리 0.00km</span>
@@ -92,13 +98,14 @@ body{background:var(--night);color:var(--ink);font-family:var(--body);overflow:h
 <div class="intro" id="intro">
   <div class="intro-inner">
     <h1>잔잔한 바다</h1>
-    <p>배는 알아서 천천히 남쪽으로 나아가요.<br>끌어서 둘러보고, 아래로 끌면 하늘이 보여요.</p>
+    <p>배는 알아서 천천히 나아가요.<br>바다를 누르면 그쪽으로 방향을 틀어요.<br>끌어서 둘러보고, 아래로 끌면 하늘이 보여요.</p>
     <button class="board" id="board" type="button">배에 오르기<small>소리가 켜져요</small></button>
     <div class="loading" id="loading">바다를 펼치는 중…</div>
   </div>
 </div>
 
-<div class="hint fade" id="hint">끌어서 둘러보고, 아래로 끌면 하늘이 보여요</div>
+<div class="hint fade" id="hint">바다를 누르면 그쪽으로 가요 · 끌어서 둘러봐요</div>
+<button class="pill fade" id="waveBtn" type="button" tabindex="-1" style="top:auto;bottom:calc(84px + env(safe-area-inset-bottom,0px))">손 흔들기</button>
 <button class="pill fade" id="bottlePill" type="button" tabindex="-1" style="top:calc(168px + env(safe-area-inset-top,0px))">유리병이 떠내려왔어요 · 건져 올리기</button>
 <button class="pill fade" id="fishPill" type="button" tabindex="-1" style="top:calc(118px + env(safe-area-inset-top,0px))">물고기가 있나 봐요! 낚싯대 내리기</button>
 <div class="toast fade" id="toast"></div>
@@ -114,13 +121,16 @@ body{background:var(--night);color:var(--ink);font-family:var(--body);overflow:h
 
 <div class="panel" id="writePanel" hidden>
   <h2>유리병 편지</h2>
-  <p>한 줄을 적어 바다에 띄우면, 언젠가 누군가의 배 옆으로 떠내려가요. 답장은 오지 않아요.</p>
-  <textarea id="letterInput" maxlength="80" placeholder="오늘 바다는 잔잔했어요"></textarea>
-  <div class="row"><span class="count" id="letterCount">0 / 80</span><button class="btn" id="sendLetter" type="button" disabled>띄워 보내기</button></div>
+  <p class="q" id="letterQ"></p>
+  <div class="row"><button class="linkbtn" id="nextQ" type="button">다른 질문</button><span class="count">한 줄이면 충분해요</span></div>
+  <textarea id="letterInput" maxlength="60" placeholder="여기에 답을 적어요"></textarea>
+  <div class="care" id="careNote" hidden>많이 힘든 날이었나 봐요. 혼자 견디지 않아도 돼요.<br>지금 힘들다면 <b>자살예방상담전화 109</b>(24시간)에 이야기해 보세요. 이 말은 바다에 띄우지 않았어요.</div>
+  <div class="row"><span class="count" id="letterCount">0 / 60</span><button class="btn" id="sendLetter" type="button" disabled>띄워 보내기</button></div>
 </div>
 
 <div class="panel" id="readPanel" hidden>
   <h2>누군가 띄운 편지</h2>
+  <p class="q" id="readQ" hidden></p>
   <div class="letter" id="letterText"></div>
   <div class="row"><span class="count" id="letterWhen"></span><button class="btn quiet" id="releaseLetter" type="button">다시 띄워 보내기</button></div>
 </div>
@@ -128,7 +138,8 @@ body{background:var(--night);color:var(--ink);font-family:var(--body);overflow:h
 <div class="panel" id="catchPanel" hidden>
   <h2 id="catchTitle">낚았어요!</h2>
   <p id="catchSize"></p>
-  <div class="row"><span class="count" id="catchCount"></span><span class="row" style="gap:8px"><button class="btn quiet" id="giftBtn" type="button" hidden>선물하기</button><button class="btn" id="releaseBtn" type="button">놓아주기</button></span></div>
+  <span class="count" id="catchCount"></span>
+  <div class="row" style="gap:8px;justify-content:flex-end;flex-wrap:wrap"><button class="btn quiet" id="giftBtn" type="button" hidden>선물하기</button><button class="btn quiet" id="thanksBtn" type="button" hidden>고마워요 ♥</button><button class="btn" id="releaseBtn" type="button">놓아주기</button></div>
 </div>
 
 <div class="panel" id="shoutPanel" hidden>
@@ -139,6 +150,7 @@ body{background:var(--night);color:var(--ink);font-family:var(--body);overflow:h
 </div>
 
 <div class="dock fade" id="dock">
+  <button class="round wide" id="speedBtn" type="button" aria-label="속도 바꾸기">보통</button>
   <button class="round" id="shoutBtn" type="button" aria-label="하늘에 외치기" aria-expanded="false">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5v3.5M12 18v3.5M2.5 12H6M18 12h3.5M5.3 5.3l2.5 2.5M16.2 16.2l2.5 2.5M5.3 18.7l2.5-2.5M16.2 7.8l2.5-2.5"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/></svg>
   </button>
@@ -391,7 +403,8 @@ const seaMat=new THREE.ShaderMaterial({
       // fade to the haze at the horizon
       col=mix(col,uHorizon,smoothstep(70.0,1400.0,dist));
       // a clear window under the boat, so the fish below show through
-      vec2 b=(p-uBoat.xz)*vec2(1.0,0.55);
+      vec3 h0=uHulls[0]; vec2 d0=p-h0.xy; float c0=cos(h0.z), s0=sin(h0.z);
+      vec2 b=vec2(c0*d0.x-s0*d0.y, s0*d0.x+c0*d0.y)*vec2(1.0,0.55);
       float alpha=mix(0.38,1.0,smoothstep(1.6,4.2,length(b)));
       gl_FragColor=vec4(col,alpha);
     }`
@@ -436,7 +449,13 @@ function updateSky(){
 }
 
 /* ---------- the boat ---------- */
-const boat=new THREE.Group(); scene.add(boat);
+const boat=new THREE.Group(); scene.add(boat); boat.rotation.order='YXZ';
+/* heading: boat.rotation.y. forward = (-sin H, -cos H); local x is right of the bow, local z points to the stern. */
+let H=0, Htarget=0, turnVel=0, spd=0.85, spdTarget=0.85, spdLevel=2;
+const bv=new THREE.Vector3(), _o=new THREE.Vector3(), _l=new THREE.Vector3();
+const wrapPI=a=>{ a%=Math.PI*2; if(a>Math.PI) a-=Math.PI*2; if(a<-Math.PI) a+=Math.PI*2; return a; };
+function bloc(lx,lz,out){ const c=Math.cos(H), sn=Math.sin(H); out.x=boat.position.x+lx*c+lz*sn; out.z=boat.position.z-lx*sn+lz*c; return out; }
+function blocal(wx,wz,out){ const dx=wx-boat.position.x, dz=wz-boat.position.z, c=Math.cos(H), sn=Math.sin(H); out.x=dx*c-dz*sn; out.z=dx*sn+dz*c; return out; }
 const HL=3.2, HD=0.38;
 function hullW(u){ return u<0.55 ? 0.62*Math.pow(Math.sin(Math.PI/2*u/0.55),0.7) : 0.62-0.15*Math.pow((u-0.55)/0.45,2); }
 function hullTop(u){ return 0.42+0.18*Math.pow(1-u,3); }
@@ -552,13 +571,15 @@ const fp=Array.from({length:FOAM},()=>({x:0,z:0,vx:0,vz:0,age:1,life:1,s0:.1,s1:
 let fpNext=0; const dummy=new THREE.Object3D(), fc=new THREE.Color(), tmp=new THREE.Vector3();
 function spawnFoam(x,z,vx,vz,life,s0,s1,str=1){ const p=fp[fpNext]; fpNext=(fpNext+1)%FOAM; Object.assign(p,{x,z,vx,vz,age:0,life,s0,s1,rot:Math.random()*6.28,str}); }
 function emitWake(dt){
-  const rate=55*dt; const n=Math.floor(rate)+(Math.random()<rate%1?1:0);
+  const rate=55*dt*clamp(0.12+0.88*spd/0.85,0.12,1.6); const n=Math.floor(rate)+(Math.random()<rate%1?1:0);
   for(let k=0;k<n;k++){
     if(Math.random()<0.6){ const s=Math.random()<.5?-1:1, u=0.02+Math.random()*0.3;
       tmp.set(s*hullW(u)*1.04,0,-HL/2+HL*u); boat.localToWorld(tmp);
-      spawnFoam(tmp.x,tmp.z,s*(0.22+Math.random()*0.2),(Math.random()-0.5)*0.05,5+Math.random()*3,0.08,0.32+Math.random()*0.18,0.55); }
+      { const lvx=s*(0.22+Math.random()*0.2), lvz=(Math.random()-0.5)*0.05, c=Math.cos(H), sn=Math.sin(H);
+        spawnFoam(tmp.x,tmp.z,lvx*c+lvz*sn,-lvx*sn+lvz*c,5+Math.random()*3,0.08,0.32+Math.random()*0.18,0.55); } }
     else { tmp.set((Math.random()-0.5)*1.0,0,HL/2+0.05); boat.localToWorld(tmp);
-      spawnFoam(tmp.x,tmp.z,(Math.random()-0.5)*0.15,0.1+Math.random()*0.1,4+Math.random()*2,0.12,0.45,0.4); }
+      { const lvx=(Math.random()-0.5)*0.15, lvz=0.1+Math.random()*0.1, c=Math.cos(H), sn=Math.sin(H);
+        spawnFoam(tmp.x,tmp.z,lvx*c+lvz*sn,-lvx*sn+lvz*c,4+Math.random()*2,0.12,0.45,0.4); } }
   }
 }
 function splash(x,z,big){ const n=big?40:24; for(let i=0;i<n;i++){ const a=Math.random()*6.28, sp=0.2+Math.random()*(big?0.9:0.5); spawnFoam(x,z,Math.cos(a)*sp,Math.sin(a)*sp,1.6+Math.random()*1.4,0.1,0.5,1); } }
@@ -618,15 +639,16 @@ function makeDolphin(){
   return {g,fluke};
 }
 // a small pod riding under the boat
-const pod=[[-1.25,-1.35,-0.5],[1.3,-1.75,0.6],[0.15,-2.25,1.8]].map((off,i)=>{ const d=makeDolphin(); d.g.scale.setScalar(0.85); scene.add(d.g); return {...d,off,p:i*2.1}; });
+const pod=[[-1.25,-1.35,-0.5],[1.3,-1.75,0.6],[0.15,-2.25,1.8]].map((off,i)=>{ const d=makeDolphin(); d.g.scale.setScalar(0.85); d.g.rotation.order='YXZ'; scene.add(d.g); return {...d,off,p:i*2.1}; });
 function updatePod(){
   for(const d of pod){ const [ox,oy,oz]=d.off;
-    d.g.position.set(boat.position.x+ox+Math.sin(t*0.3+d.p)*0.35, oy+Math.sin(t*0.9+d.p)*0.12, boat.position.z+oz+Math.sin(t*0.22+d.p)*0.5);
-    d.g.rotation.set(Math.cos(t*0.9+d.p)*0.1, Math.cos(t*0.3+d.p)*0.1, Math.sin(t*0.4+d.p)*0.08);
+    bloc(ox+Math.sin(t*0.3+d.p)*0.35, oz+Math.sin(t*0.22+d.p)*0.5, _o);
+    d.g.position.set(_o.x, oy+Math.sin(t*0.9+d.p)*0.12, _o.z);
+    d.g.rotation.set(Math.cos(t*0.9+d.p)*0.1, H+Math.cos(t*0.3+d.p)*0.1, Math.sin(t*0.4+d.p)*0.08);
     d.fluke.rotation.x=Math.sin(t*3.2+d.p)*0.35; }
 }
 // now and then one rolls up beside the boat: back and dorsal fin break the surface
-const surf=makeDolphin(); surf.g.visible=false; scene.add(surf.g);
+const surf=makeDolphin(); surf.g.visible=false; surf.g.rotation.order='YXZ'; scene.add(surf.g);
 let surfState=null, nextSurf=18;
 function updateSurfacer(dt){
   if(!surfState){ if(!started) return; nextSurf-=rdt; if(nextSurf>0) return; nextSurf=22+Math.random()*25;
@@ -634,8 +656,8 @@ function updateSurfacer(dt){
   const s=surfState; s.z-=dt*1.8; s.ph+=dt*1.9;
   const up=Math.max(0,Math.sin(s.ph)), y=-1.0+1.02*up;
   const vy=(Math.sin(s.ph)>0?1.02*Math.cos(s.ph)*1.9:0);
-  surf.g.position.set(boat.position.x+s.side*1.75+Math.sin(s.ph*0.5)*0.15,y,boat.position.z+s.z);
-  surf.g.rotation.set(Math.atan2(vy,2.65),0,0);
+  bloc(s.side*1.75+Math.sin(s.ph*0.5)*0.15,s.z,_o); surf.g.position.set(_o.x,y,_o.z);
+  surf.g.rotation.set(Math.atan2(vy,2.65),H,0);
   surf.fluke.rotation.x=Math.sin(t*4)*0.4;
   if((s.lastY<-0.3)!==(y<-0.3)){ splash(surf.g.position.x,surf.g.position.z-0.4,false); if(y>=-0.3) soundBlow(0.5,false); }
   s.lastY=y;
@@ -746,12 +768,12 @@ function startEncounter(){
     const grp=new THREE.Group(); const rock=makeRock(); grp.add(rock);
     const animal=Math.random()<.5?makeSeal():makeOtter();
     animal.g.position.set(0.05,0.48,0); grp.add(animal.g);
-    grp.position.set(boat.position.x+side*(3.6+Math.random()*2),0,boat.position.z-70);
+    bloc(side*(3.6+Math.random()*2),-70,_o); grp.position.set(_o.x,0,_o.z);
     grp.rotation.y=side>0?Math.PI*0.5+Math.random()*0.6:-Math.PI*0.5-Math.random()*0.6;
-    scene.add(grp); enc={kind:'rock',grp,animal,foamT:0};
+    scene.add(grp); enc={kind:'rock',grp,animal,foamT:0,age:0};
   } else {
-    const w=makeWhale(); w.g.position.set(boat.position.x+side*(12+Math.random()*8),-2.4,boat.position.z-85-Math.random()*20);
-    w.g.rotation.y=side>0?0.3:-0.3; scene.add(w.g); enc={kind:'whale',w,t:0,blown:false,splashed:false};
+    const w=makeWhale(); bloc(side*(12+Math.random()*8),-85-Math.random()*20,_o); w.g.position.set(_o.x,-2.4,_o.z);
+    w.g.rotation.order='YXZ'; w.g.rotation.y=H+(side>0?0.3:-0.3); scene.add(w.g); enc={kind:'whale',w,t:0,blown:false,splashed:false,h0:H};
   }
 }
 const encLocal=new THREE.Vector3();
@@ -764,13 +786,13 @@ function updateEncounter(dt){
     animal.head.rotation.y+=(yaw-animal.head.rotation.y)*Math.min(1,dt*1.5);
     if(animal.kind==='seal'){ const b=(Math.sin(t*0.6)*0.5+0.5); animal.head.rotation.x=-0.25-0.35*b; animal.tail.rotation.x=-0.3-0.4*b; }
     else { animal.head.rotation.z=Math.sin(t*0.9)*0.12; animal.tail.rotation.y=Math.sin(t*1.3)*0.3; }
-    enc.foamT-=dt; const rel=grp.position.z-boat.position.z;
+    enc.foamT-=dt; enc.age+=dt; const rel=blocal(grp.position.x,grp.position.z,_l).z;
     if(enc.foamT<=0&&rel>-60){ enc.foamT=0.25; const a=Math.random()*6.28;
       spawnFoam(grp.position.x+Math.cos(a)*1.45,grp.position.z+Math.sin(a)*1.15,Math.cos(a)*0.12,Math.sin(a)*0.12,3.5,0.2,0.7,0.8); }
-    if(rel>28){ scene.remove(grp); disposeTree(grp); enc=null; nextEnc=150+Math.random()*90; }
+    if(rel>28||enc.age>240||Math.hypot(_l.x,_l.z)>170){ scene.remove(grp); disposeTree(grp); enc=null; nextEnc=150+Math.random()*90; }
   } else {
     const e=enc, w=e.w; e.t+=dt; const T=e.t;
-    w.g.position.z-=dt*0.6;
+    w.g.position.x-=Math.sin(e.h0)*dt*0.6; w.g.position.z-=Math.cos(e.h0)*dt*0.6;
     if(T<3.2){ w.g.position.y=lerp(-2.4,-0.62,smooth(0,3.2,T)); w.g.rotation.x=lerp(0.12,0,smooth(0,3.2,T)); }
     else if(T<6.8){ w.g.position.y=lerp(-0.62,-2.6,smooth(3.2,6.8,T)); w.g.rotation.x=lerp(0,-0.18,smooth(3.2,6.8,T)); }
     if(T>1.3&&!e.blown){ e.blown=true; encLocal.set(0,0.9,-4.6); w.g.localToWorld(encLocal); blow(encLocal.x,Math.max(0.4,encLocal.y),encLocal.z); soundBlow(1,true); }
@@ -867,26 +889,26 @@ function setLine(a,b){ const p=lineGeo.attributes.position; p.setXYZ(0,a.x,a.y,a
 function startCast(){
   if(!fishing||fishing.state!=='float') return;
   const f=fishing; f.state='cast'; f.t=0; $('fishPill').classList.add('fade');
-  bobRel.set(bobber.position.x-boat.position.x,0,bobber.position.z-boat.position.z); f.from=bobRel.clone();
+  blocal(bobber.position.x,bobber.position.z,_l); bobRel.set(_l.x,0,_l.z); f.from=bobRel.clone();
   aimRod(f.side); rod.visible=true; fishLine.visible=true; soundPlunk(0.6);
 }
 function updateFishing(dt){
   if(!fishing){ if(!started) return; nextBob-=rdt; if(nextBob>0) return;
     const side=Math.random()<.5?-1:1;
-    fishing={state:'float',t:0,side}; bobber.position.set(boat.position.x+side*(2.2+Math.random()*0.8),0,boat.position.z-24); bobber.visible=true; return; }
+    fishing={state:'float',t:0,side}; bloc(side*(2.2+Math.random()*0.8),-24,_o); bobber.position.set(_o.x,0,_o.z); bobber.visible=true; return; }
   const f=fishing; f.t+=dt;
   if(f.state==='float'){
     bobber.position.y=0.02+Math.sin(t*1.7)*0.03; bobber.rotation.z=Math.sin(t*1.3)*0.15;
-    const rel=bobber.position.z-boat.position.z; const near=rel>-12&&rel<3;
+    const rel=blocal(bobber.position.x,bobber.position.z,_l).z; const near=rel>-12&&rel<3;
     $('fishPill').classList.toggle('fade',!near); $('fishPill').tabIndex=near?0:-1;
     if(Math.random()<dt*0.8) spawnFoam(bobber.position.x,bobber.position.z,0,0,2.5,0.05,0.5,0.6);
-    if(rel>8){ bobber.visible=false; $('fishPill').classList.add('fade'); fishing=null; nextBob=60+Math.random()*40; }
+    if(rel>8||f.t>150){ bobber.visible=false; $('fishPill').classList.add('fade'); fishing=null; nextBob=60+Math.random()*40; }
     return;
   }
   // from the cast on, the bobber rides along beside the boat
   const k=smooth(0,1,f.t);
   if(f.from) bobRel.copy(f.from).lerp(new THREE.Vector3(f.side*2.6,0,SEAT_Z-2.8),k);
-  bobber.position.set(boat.position.x+bobRel.x,0,boat.position.z+bobRel.z);
+  bloc(bobRel.x,bobRel.z,_o); bobber.position.set(_o.x,0,_o.z);
   const tip=rodTip();
   if(f.state==='cast'){
     bobber.position.y=0.02+Math.sin(t*1.7)*0.03;
@@ -906,7 +928,7 @@ function updateFishing(dt){
     if(f.state==='incoming'){ const s=smooth(0,2.2,f.t);
       c.g.position.copy(f.src).lerp(holdW,s); c.g.position.y+=Math.sin(Math.PI*s)*7;
       c.g.rotation.set(0,f.side*Math.PI/2*s,(1-s)*f.side*3);
-      if(f.t>2.2){ f.state='show'; f.t=0; splash(holdW.x,holdW.z,false); soundSplash(0.5); showCatch(f); } }
+      if(f.t>2.2){ f.state='show'; f.t=0; splash(holdW.x,holdW.z,false); soundSplash(0.5); showCatch(f); if(f.from) netEmote(f.from,'got'); } }
     else if(f.state==='gift'){ const s=smooth(0,2.0,f.t); const o=others.get(f.to); if(o) f.dest.copy(o.g.position);
       c.g.position.copy(f.from0).lerp(f.dest,s); c.g.position.y+=Math.sin(Math.PI*s)*8;
       c.g.rotation.set(0,f.side*Math.PI/2,s*Math.PI*4*f.side);
@@ -930,6 +952,7 @@ function updateFishing(dt){
 function showCatch(f){
   $('catchTitle').textContent=f.received?`멀리 배에서 ${f.kind.name}가 날아왔어요!`:`${f.kind.name}를 낚았어요!`;
   $('giftBtn').hidden=!(netReady&&others.size>0);
+  $('thanksBtn').hidden=!(f.received&&f.from&&others.has(f.from));
   $('catchSize').textContent=`${f.kind.id==='sunfish'?'키':'길이'} ${f.size}cm`;
   $('catchCount').textContent=f.received?'선물 받은 물고기':`지금까지 ${caughtCount+1}마리째`;
   openPanel('catch');
@@ -960,42 +983,198 @@ function makeBottle(){
 }
 const drift=makeBottle(); drift.visible=false; scene.add(drift); drift.traverse(o=>o.renderOrder=2);   // one floating toward me
 const tossed=makeBottle(); tossed.visible=false; scene.add(tossed); tossed.traverse(o=>o.renderOrder=2); // one I just sent off
-let driftLetter=null, tossT=-1, tossFrom=new THREE.Vector3();
+let driftLetter=null, driftT=0, tossT=-1, tossFrom=new THREE.Vector3(), tossAway=new THREE.Vector3();
 
-/* ---------- other boats: everyone here right now, each with their own little one ---------- */
+/* ---------- other boats: real positions, shared with everyone here right now ---------- */
 const HATS=[0xd6584a,0x3d7dd8,0x3fa36b,0xe0a12b,0x8a5bd1,0xe46aa0,0x2bb3b0];
 const COATS=[0xf2b83a,0xf3efe6,0x8fc3e8,0xf0a3a8,0xb7d98b,0xf6d06b];
 const others=new Map();
 function hash01(str){ let h=2166136261; for(let i=0;i<str.length;i++){ h^=str.charCodeAt(i); h=Math.imul(h,16777619); } return ((h>>>0)%100000)/100000; }
 function addOther(id){
   if(others.has(id)||!id) return;
-  const g=new THREE.Group();
+  const g=new THREE.Group(); g.rotation.order='YXZ'; g.visible=false;
   for(let i=0;i<4&&i<boat.children.length;i++) g.add(boat.children[i].clone());
   const r=hash01(id), r2=hash01(id+'x'), r3=hash01(id+'y');
-  const kid=makeBuddy(HATS[Math.floor(r2*HATS.length)],COATS[Math.floor(r3*COATS.length)]); kid.g.position.set(0,SEAT_Y,SEAT_Z); g.add(kid.g);
+  const kid=makeBuddy(); kid.g.position.set(0,SEAT_Y,SEAT_Z); g.add(kid.g);
+  kid.g.traverse(o=>{ if(!o.isMesh) return; const c=o.material.color.getHex();
+    if(c===0xd6584a) o.material.color.setHex(HATS[Math.floor(r2*HATS.length)]);
+    if(c===0xf2b83a) o.material.color.setHex(COATS[Math.floor(r3*COATS.length)]); });
   const glow=new THREE.Sprite(new THREE.SpriteMaterial({map:lampGlowTex,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}));
   glow.position.set(0.3,1.15,-1.05); glow.renderOrder=3; g.add(glow);
   const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.03,1.0,8),new THREE.MeshStandardMaterial({color:0x6b5038,roughness:0.8}));
   pole.position.set(0.3,0.68,-1.0); g.add(pole);
-  // spread out in front of and beside me, close enough to see the little one
-  const bearing=(r-0.5)*1.25, dist=13+r2*15;
-  others.set(id,{g,kid,glow,bearing,dist,blink:0,ph:r*10,pick:0});
+  others.set(id,{g,kid,glow,bearing:(r-0.5)*Math.PI*1.25,dist:16+r2*16,blink:0,ph:r*10,
+    st:false,sx:0,sz:0,h:0,th:0,tv:0,v:0.85,vt:0.85,ex:0,ez:0,eh:0,key:'',px:undefined,pz:undefined,d:999,
+    hiFrom:0,hiTo:0,legacyAt:performance.now(),foamT:0});
   scene.add(g); soundChime(true);
 }
-function removeOther(id){ const o=others.get(id); if(!o) return; scene.remove(o.g); o.glow.material.dispose(); others.delete(id); }
+function removeOther(id){ const o=others.get(id); if(!o) return; if(convoy&&convoy.id===id) endConvoy(); scene.remove(o.g); o.glow.material.dispose(); others.delete(id); }
+// a position report: where they are, which way they face, where they are turning to, how fast
+function setOtherState(id,p){
+  const o=others.get(id); if(!o||!p||typeof p.x!=='number'||typeof p.z!=='number') return;
+  const key=[p.x,p.z,p.h,p.th,p.v,p.vt].join(','); if(key===o.key) return; o.key=key;
+  const h=+p.h||0;
+  if(!o.st){ o.st=true; o.sx=p.x; o.sz=p.z; o.h=h; o.ex=o.ez=o.eh=0; }
+  else { const px=o.sx+o.ex, pz=o.sz+o.ez, hh=o.h+o.eh;
+    o.ex=px-p.x; o.ez=pz-p.z; o.eh=wrapPI(hh-h); if(Math.hypot(o.ex,o.ez)>70){ o.ex=o.ez=0; } o.sx=p.x; o.sz=p.z; o.h=h; }
+  o.th=typeof p.th==='number'?p.th:h; o.v=Math.max(0,+p.v||0); o.vt=typeof p.vt==='number'?p.vt:o.v;
+}
+const _w=new THREE.Vector3();
+function wakeOf(o,hh,px,pz,dt){
+  if(o.v<0.1||Math.random()>dt*16) return; const c=Math.cos(hh), sn=Math.sin(hh);
+  const s=Math.random()<.5?-1:1, u=0.02+Math.random()*0.3, lx=s*hullW(u)*1.04, lz=-HL/2+HL*u;
+  spawnFoam(px+lx*c+lz*sn,pz-lx*sn+lz*c,(s*0.3)*c,-(s*0.3)*sn,4+Math.random()*2,0.08,0.3,0.5);
+  const sx=(Math.random()-0.5)*0.9, sz=HL/2+0.05; spawnFoam(px+sx*c+sz*sn,pz-sx*sn+sz*c,0,0,3.5,0.12,0.4,0.4);
+}
+let gatherT=0, lastGather=0, nearId=null;
 function updateOthers(dt){
-  for(const o of others.values()){
+  let nearN=0, nearest=null, nd=1e9, gatherN=0;
+  for(const [id,o] of others){
     o.blink=Math.max(0,o.blink-dt);
-    o.g.position.set(boat.position.x+Math.sin(o.bearing)*o.dist,-0.2+Math.sin(t*1.0+o.ph)*0.04,boat.position.z-Math.cos(o.bearing)*o.dist);
-    o.g.rotation.y=Math.sin(t*0.05+o.ph)*0.25; o.g.rotation.z=Math.sin(t*0.7+o.ph)*0.03;
+    let px,pz,hh;
+    if(o.st){
+      const dH=wrapPI(o.th-o.h), want=clamp(dH*0.9,-0.3,0.3); o.tv+=(want-o.tv)*Math.min(1,dt*1.8); o.h=wrapPI(o.h+o.tv*dt);
+      o.v+=(o.vt-o.v)*Math.min(1,dt*0.7);
+      o.sx+=-Math.sin(o.h)*o.v*dt; o.sz+=-Math.cos(o.h)*o.v*dt;
+      const dec=Math.exp(-dt*0.7); o.ex*=dec; o.ez*=dec; o.eh*=dec;
+      px=o.sx+o.ex; pz=o.sz+o.ez; hh=o.h+o.eh;
+    } else if(performance.now()-o.legacyAt>2500){ // a page from before positions were shared: keep it at its own bearing
+      bloc(Math.sin(o.bearing)*o.dist,-Math.cos(o.bearing)*o.dist,_w); px=_w.x; pz=_w.z; hh=H+Math.sin(t*0.05+o.ph)*0.25; o.v=0.85;
+    } else { o.g.visible=false; continue; }
+    o.px=px; o.pz=pz; o.d=Math.hypot(px-boat.position.x,pz-boat.position.z);
+    o.g.visible=o.d<260;
+    o.g.position.set(px,-0.2+Math.sin(t*1.0+o.ph)*0.04,pz); o.g.rotation.y=hh; o.g.rotation.z=Math.sin(t*0.7+o.ph)*0.03-o.tv*0.32;
     o.kid.head.rotation.y=Math.sin(t*0.13+o.ph)*0.5; o.kid.head.rotation.x=-Math.max(0,Math.sin(t*0.07+o.ph))*0.3;
     const flash=o.blink>0?Math.sin(Math.PI*(1-o.blink/1.6)):0;
     const pick=picking?0.5+0.5*Math.sin(t*6):0;
     o.glow.material.opacity=0.35+night*0.5+flash*1.2+pick*0.8;
     o.glow.scale.setScalar(lerp(1.8,3.2,night)+flash*7+pick*1.5);
+    if(o.g.visible&&o.d<90) wakeOf(o,hh,px,pz,dt);
+    if(o.g.visible){ nearN++; if(o.d<45) gatherN++; if(o.d<nd){ nd=o.d; nearest=id; } }
   }
-  const n=others.size; const el=$('others');
-  el.hidden=n===0; el.textContent=n?`가까이 배 ${n}척`:'';
+  nearId=nd<28?nearest:null;
+  const n=others.size, el=$('others');
+  el.hidden=n===0; el.textContent=n?`${nearN?'가까이':'멀리'} 배 ${n}척${convoy?' · ♥ 함께 가는 중':''}`:'';
+  updateWaveBtn();
+  if(started&&gatherN>=2){ gatherT+=dt; if(gatherT>18&&Date.now()-lastGather>240000){ lastGather=Date.now(); gatherT=0; launchShout('함께'); toast('여럿이 모이니 바다가 환해져요'); } } else gatherT=0;
+  shareTick(); updateBubbles(dt); updateMarker(dt); drawRadar(dt);
+}
+
+/* ---------- little speech bubbles ---------- */
+const bubbles=[];
+function bubbleTex(text){
+  const c=document.createElement('canvas'); c.width=320; c.height=140; const g=c.getContext('2d');
+  g.fillStyle='rgba(255,250,240,.95)'; g.strokeStyle='rgba(120,90,60,.55)'; g.lineWidth=4;
+  g.beginPath(); g.roundRect(8,8,304,86,30); g.moveTo(140,94); g.lineTo(160,126); g.lineTo(180,94); g.fill(); g.stroke();
+  g.fillStyle='rgba(255,250,240,.95)'; g.fillRect(142,88,36,10);
+  g.fillStyle='#3a2a1c'; g.font='700 40px "Gowun Dodum","Apple SD Gothic Neo","Noto Sans KR",sans-serif'; g.textAlign='center'; g.textBaseline='middle'; g.fillText(text,160,52);
+  const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; return t;
+}
+function showBubble(parent,text){
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:bubbleTex(text),transparent:true,depthWrite:false,toneMapped:false,opacity:0}));
+  sp.scale.set(2.9,1.27,1); sp.position.set(0,2.5,0); sp.renderOrder=6; parent.add(sp); bubbles.push({sp,parent,t:0,lift:bubbles.filter(b=>b.parent===parent).length*0.75});
+}
+function updateBubbles(dt){
+  for(let i=bubbles.length-1;i>=0;i--){ const b=bubbles[i]; b.t+=dt; const k=b.t/3.4;
+    b.sp.position.y=2.5+b.lift+b.t*0.22; b.sp.material.opacity=smooth(0,0.08,k)*(1-smooth(0.75,1,k));
+    b.sp.getWorldPosition(_w); const sc=clamp(camera.position.distanceTo(_w)/20,0.3,1.6); b.sp.scale.set(2.9*sc,1.27*sc,1);
+    if(k>=1){ b.parent.remove(b.sp); b.sp.material.map.dispose(); b.sp.material.dispose(); bubbles.splice(i,1); } }
+}
+
+/* ---------- steering: tap the sea ---------- */
+const marker=new THREE.Mesh(new THREE.RingGeometry(0.5,0.68,40).rotateX(-Math.PI/2),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0,depthWrite:false,toneMapped:false}));
+marker.visible=false; marker.renderOrder=3; scene.add(marker); let markT=-1;
+function showMarker(x,z){ marker.position.set(x,0.08,z); markT=0; marker.visible=true; }
+function updateMarker(dt){ if(markT<0) return; markT+=dt; const k=markT/1.8;
+  marker.scale.setScalar(1+k*2.2); marker.material.opacity=0.85*(1-k)*Math.min(1,markT*6); if(k>=1){ marker.visible=false; markT=-1; } }
+const seaPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0), hitP=new THREE.Vector3();
+function steerToward(x,z,mark){
+  const dx=x-boat.position.x, dz=z-boat.position.z; if(Math.hypot(dx,dz)<2) return;
+  Htarget=Math.atan2(-dx,-dz); if(mark) showMarker(x,z);
+  if(convoy&&!convoy.leader) endConvoy('각자 항해해요');
+  shareNow();
+}
+function steerTap(){ if(pitch>0.3) return false; if(!ray.ray.intersectPlane(seaPlane,hitP)) return false; if(hitP.distanceTo(boat.position)>1800) return false;
+  steerToward(hitP.x,hitP.z,true); return true; }
+function setSpeedLevel(i,quiet){
+  spdLevel=i; spdTarget=SPEEDS[i].v; $('speedBtn').textContent=SPEEDS[i].n; if(!quiet) toast(i===0?'닻을 내렸어요':`${SPEEDS[i].n} 가요`);
+  if(convoy&&!convoy.leader&&!quiet) endConvoy('각자 항해해요'); shareNow();
+}
+$('speedBtn').addEventListener('click',()=>setSpeedLevel((spdLevel+1)%SPEEDS.length));
+
+/* ---------- people near me: wave, then go along together ---------- */
+const EMOTES={hi:'안녕!',thanks:'고마워요 ♥',got:'받았어요!'};
+let convoy=null;
+const selfKey=()=>String(myPeer||myId||'');
+function startConvoy(id){
+  const o=others.get(id); if(!o||!o.st||(convoy&&convoy.id===id)) return;
+  const dx=boat.position.x-o.px, dz=boat.position.z-o.pz, lx=dx*Math.cos(o.h)-dz*Math.sin(o.h);
+  convoy={id,leader:selfKey()<String(id),side:lx>=0?1:-1};
+  toast('가까이 있는 배와 함께 가요 ♥'); soundChime(true); showBubble(boat,'같이 가요 ♥');
+}
+function endConvoy(msg){ if(!convoy) return; convoy=null; if(msg) toast(msg); }
+function followConvoy(dt){
+  if(!convoy) return; const o=others.get(convoy.id);
+  if(!o||!o.st||o.px===undefined){ endConvoy(); return; }
+  const dx=boat.position.x-o.px, dz=boat.position.z-o.pz, d=Math.hypot(dx,dz);
+  if(d>220){ endConvoy('멀어졌어요'); return; }
+  if(convoy.leader) return;           // the one who leads keeps going its own way; the other lines up beside it
+  const c=Math.cos(o.h), sn=Math.sin(o.h), lx=dx*c-dz*sn, lz=dx*sn+dz*c;
+  if(d>24){ Htarget=Math.atan2(-(o.px-boat.position.x),-(o.pz-boat.position.z)); spdTarget=SPEED*1.4; }
+  else { Htarget=wrapPI(o.h-clamp((convoy.side*8-lx)*0.06,-0.5,0.5));
+    spdTarget=clamp(o.v*(1+clamp(lz*0.04,-0.35,0.6)),lz>1.5?0.35:0,1.9); }
+}
+function sendHi(id){
+  const o=others.get(id); if(!o||Date.now()-o.hiTo<4000) return; o.hiTo=Date.now();
+  netEmote(id,'hi'); showBubble(boat,EMOTES.hi); soundChime(false);
+  if(Date.now()-o.hiFrom<30000) startConvoy(id); else toast('손을 흔들었어요');
+}
+function onEmote(fromId,kind){
+  const o=others.get(fromId);
+  if(kind==='hi'){ if(o){ o.hiFrom=Date.now(); showBubble(o.g,EMOTES.hi); if(Date.now()-o.hiTo<30000) startConvoy(fromId); else toast('가까이 있는 배가 손을 흔들어요'); } soundChime(true); }
+  else if(kind==='thanks'){ if(o) showBubble(o.g,EMOTES.thanks); toast('받은 분이 고마워해요 ♥'); soundChime(true); }
+  else if(kind==='got'){ if(o) showBubble(o.g,EMOTES.got); toast('선물이 도착했어요'); }
+}
+function updateWaveBtn(){
+  const b=$('waveBtn'); if(!started){ return; }
+  if(!nearId){ b.classList.add('fade'); b.tabIndex=-1; return; }
+  const o=others.get(nearId), inConv=convoy&&convoy.id===nearId;
+  b.textContent=inConv?'♥ 함께 가는 중 · 그만하기':(Date.now()-o.hiFrom<25000?'마주 손 흔들기':'손 흔들기');
+  b.classList.remove('fade'); b.tabIndex=0;
+}
+$('waveBtn').addEventListener('click',()=>{ if(!nearId) return; if(convoy&&convoy.id===nearId) endConvoy('각자 항해해요'); else sendHi(nearId); });
+function tapBoat(id){ const o=others.get(id); if(!o) return; if(o.d<=30) sendHi(id); else { steerToward(o.px,o.pz,true); toast('저 배 쪽으로 가요'); } }
+
+/* ---------- a small radar: who is where, relative to my bow ---------- */
+const radar=$('radar'), rctx=radar.getContext('2d'); let radarT=0;
+function drawRadar(dt){
+  radarT-=dt; if(radarT>0||!started) return; radarT=0.1;
+  const W=radar.width, c=W/2, R=c-5, range=170, g=rctx; g.clearRect(0,0,W,W);
+  g.fillStyle='rgba(14,24,44,.42)'; g.beginPath(); g.arc(c,c,R,0,7); g.fill();
+  g.strokeStyle='rgba(244,239,230,.38)'; g.lineWidth=2; g.beginPath(); g.arc(c,c,R,0,7); g.stroke();
+  g.strokeStyle='rgba(244,239,230,.16)'; g.beginPath(); g.arc(c,c,R*0.5,0,7); g.stroke();
+  g.fillStyle='rgba(244,239,230,.7)'; g.font='700 20px sans-serif'; g.textAlign='center'; g.textBaseline='middle';
+  g.fillText('북',c-Math.sin(H)*(R-13),c+Math.cos(H)*(R-13));
+  for(const o of others.values()){ if(o.px===undefined) continue; blocal(o.px,o.pz,_l); const r=Math.hypot(_l.x,_l.z);
+    const x=c+(r>range?_l.x*(R-5)/r:_l.x*R/range), y=c+(r>range?_l.z*(R-5)/r:_l.z*R/range);
+    const fl=o.blink>0?1:0; g.globalAlpha=r>range?0.45:1; g.fillStyle=convoy&&others.get(convoy.id)===o?'#ff9fb0':'#ffc77a';
+    g.beginPath(); g.arc(x,y,fl?8:5.5,0,7); g.fill(); g.globalAlpha=1; }
+  g.fillStyle='#fff'; g.beginPath(); g.moveTo(c,c-9); g.lineTo(c+6.5,c+7); g.lineTo(c-6.5,c+7); g.closePath(); g.fill();
+}
+
+/* ---------- sharing my state ---------- */
+let netState=()=>{}, netEmote=()=>{}; const lastShare={t:0,th:0,vt:0};
+function stateNow(){ return {x:+boat.position.x.toFixed(1),z:+boat.position.z.toFixed(1),h:+H.toFixed(3),th:+Htarget.toFixed(3),v:+spd.toFixed(2),vt:+spdTarget.toFixed(2)}; }
+function shareNow(){ if(!started) return; lastShare.t=performance.now(); lastShare.th=Htarget; lastShare.vt=spdTarget; netState(stateNow()); }
+function shareTick(){ if(!started) return; const dt=performance.now()-lastShare.t;
+  if(dt>20000||(dt>1500&&(Math.abs(wrapPI(Htarget-lastShare.th))>0.12||Math.abs(spdTarget-lastShare.vt)>0.15))) shareNow(); }
+setInterval(()=>{ if(started) shareNow(); },25000);
+let spawned=false;
+function spawnNear(){
+  if(spawned) return; spawned=true;
+  const c=[...others.values()].filter(o=>o.st&&o.px!==undefined); if(!c.length) return;
+  const o=c[Math.floor(Math.random()*c.length)], side=Math.random()<.5?-1:1, cs=Math.cos(o.h), sn=Math.sin(o.h), lx=side*(14+Math.random()*10), lz=20+Math.random()*14;
+  boat.position.x=o.px+lx*cs+lz*sn; boat.position.z=o.pz-lx*sn+lz*cs; H=Htarget=wrapPI(o.h+(Math.random()-0.5)*0.3);
 }
 
 /* ---------- gifts: send what you caught to another boat ---------- */
@@ -1016,6 +1195,7 @@ function sendGiftTo(id){
 }
 const giftQueue=[];
 function receiveGift(fromId,data){
+  if(typeof data.kind==='string'&&data.kind.startsWith('e:')){ onEmote(fromId,data.kind.slice(2)); return; }
   const kind=CATCHES.find(k=>k&&k.id===data.kind); if(!kind) return;
   const size=clamp(Math.round(+data.size||kind.min),kind.min,kind.max);
   giftQueue.push({fromId,kind,size});
@@ -1024,13 +1204,11 @@ function startIncoming(){
   if(!giftQueue.length||fishing&&fishing.state!=='float') return;
   if(fishing&&fishing.state==='float'){ bobber.visible=false; $('fishPill').classList.add('fade'); }
   const gq=giftQueue.shift(), o=others.get(gq.fromId);
-  const src=o?o.g.position.clone():new THREE.Vector3(boat.position.x+12,0,boat.position.z-20);
+  const src=o?o.g.position.clone():new THREE.Vector3(bloc(12,-20,_o).x,0,_o.z);
   src.y=0.8;
   const c=makeCatch(gq.kind); scene.add(c.g);
-  fishing={state:'incoming',t:0,side:src.x>boat.position.x?1:-1,kind:gq.kind,size:gq.size,c,src,received:true};
+  fishing={state:'incoming',t:0,side:blocal(src.x,src.z,_l).x>0?1:-1,kind:gq.kind,size:gq.size,c,src,received:true,from:gq.fromId};
   soundChime(true); toast(`가까이 있는 배가 ${josa(gq.kind.name,'을','를')} 보내왔어요`);
-  const nm=gq.kind.name, code=nm.charCodeAt(nm.length-1)-0xac00, josa=(code>=0&&code<11172&&code%28)?'을':'를';
-  toast(`가까이 있는 배가 ${nm}${josa} 보내왔어요`);
 }
 
 /* ---------- shouting to the sky: fireworks, then the words drift down ---------- */
@@ -1095,7 +1273,7 @@ function updateShouts(dt){
     if(sh.bursts.length===2&&T>0.6) sh.bursts.push(burst(shoutC.clone().addScaledVector(sh.right,15).add(new THREE.Vector3(0,-4,0)),sh.isNight,90,16,(sh.hue+0.66)%1));
     for(const b of sh.bursts){ if(!b.pts.visible) continue; b.age+=dt; const p=b.pts.geometry.attributes.position;
       for(let i=0;i<b.vel.length;i++){ const v=b.vel[i]; v.multiplyScalar(Math.exp(-dt*1.6)); v.y-=dt*(sh.isNight?5:3.2);
-        p.setXYZ(i,p.getX(i)+v.x*dt,p.getY(i)+v.y*dt,p.getZ(i)+v.z*dt-SPEED*dt); }
+        p.setXYZ(i,p.getX(i)+v.x*dt+bv.x*dt,p.getY(i)+v.y*dt,p.getZ(i)+v.z*dt+bv.z*dt); }
       p.needsUpdate=true; const kk=b.age/b.life; b.pts.material.opacity=Math.max(0,1-kk*kk)*(0.75+0.25*Math.sin(b.age*30));
       if(kk>=1){ b.pts.visible=false; scene.remove(b.pts); b.pts.geometry.dispose(); b.pts.material.dispose(); } }
     for(const c of sh.sprites){
@@ -1159,16 +1337,19 @@ const ray=new THREE.Raycaster(), ndc=new THREE.Vector2();
 function onTap(x,y){
   ndc.set(x/innerWidth*2-1,-(y/innerHeight)*2+1); ray.setFromCamera(ndc,camera);
   if(picking){ for(const [id,o] of others){ if(ray.intersectObject(o.g,true).length){ sendGiftTo(id); return; } } return; }
-  if(drift.visible && ray.intersectObject(drift,true).length) openDrift();
-  else if(fishing&&fishing.state==='float'&&bobber.visible&&ray.intersectObject(bobber,true).length) startCast();
+  if(drift.visible && ray.intersectObject(drift,true).length){ openDrift(); return; }
+  if(fishing&&fishing.state==='float'&&bobber.visible&&ray.intersectObject(bobber,true).length){ startCast(); return; }
+  for(const [id,o] of others){ if(o.g.visible&&ray.intersectObject(o.g,true).length){ tapBoat(id); return; } }
+  if(started) steerTap();
 }
 const headW=new THREE.Vector3(), viewDir=new THREE.Vector3(), camTarget=new THREE.Vector3();
 function updateCamera(dt){
   if(pointers.size===0){ yaw+=vYaw; pitch=clamp(pitch+vPitch,PITCH_MIN,PITCH_MAX); const d=Math.exp(-dt*5); vYaw*=d; vPitch*=d; }
   buddy.head.getWorldPosition(headW);
-  camTarget.set(boat.position.x,headW.y+0.12,boat.position.z+SEAT_Z);
+  camTarget.set(boat.position.x+SEAT_Z*Math.sin(H),headW.y+0.12,boat.position.z+SEAT_Z*Math.cos(H));
   const k=smooth(-0.2,0.7,pitch); // 0: looking at the little one, 1: lying back under the sky dome
-  viewDir.set(-Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),-Math.cos(yaw)*Math.cos(pitch));
+  const Y=yaw+H;
+  viewDir.set(-Math.sin(Y)*Math.cos(pitch),Math.sin(pitch),-Math.cos(Y)*Math.cos(pitch));
   const dist=lerp(zoom,0,k);
   camTarget.y+=k*0.38;
   camera.position.copy(camTarget).addScaledVector(viewDir,-dist);
@@ -1223,17 +1404,31 @@ function soundChime(far){ if(!ac||volume===0) return; const now=ac.currentTime;
 
 /* ---------- loop ---------- */
 const SPEED=0.85;
-let t=0, rdt=0, last=performance.now(), skyTimer=0, started=false, bottleTimer=45;
+const SPEEDS=[{n:'멈춤',v:0},{n:'천천히',v:0.42},{n:'보통',v:0.85},{n:'빠르게',v:1.6}];
+function steerUpdate(dt){
+  followConvoy(dt);
+  const dH=wrapPI(Htarget-H), want=clamp(dH*0.9,-0.3,0.3);
+  turnVel+=(want-turnVel)*Math.min(1,dt*1.8); if(Math.abs(dH)<0.004&&Math.abs(turnVel)<0.004) turnVel=0;
+  H=wrapPI(H+turnVel*dt);
+  spd+=(spdTarget-spd)*Math.min(1,dt*0.7); if(Math.abs(spdTarget-spd)<0.004) spd=spdTarget;
+  bv.set(-Math.sin(H)*spd,0,-Math.cos(H)*spd);
+  boat.position.x+=bv.x*dt; boat.position.z+=bv.z*dt;
+  // keep a little distance from other boats
+  for(const o of others.values()){ if(!o.g.visible) continue; const dx=boat.position.x-o.g.position.x, dz=boat.position.z-o.g.position.z, d=Math.hypot(dx,dz);
+    if(d<5&&d>0.01){ const push=(5-d)*0.9*dt; boat.position.x+=dx/d*push; boat.position.z+=dz/d*push; } }
+}
+let t=0, rdt=0, last=performance.now(), skyTimer=0, started=false, bottleTimer=30;
 updateSky();
 function frame(now){
   const raw=(now-last)/1000, dt=Math.min(0.05,raw); rdt=Math.min(0.5,raw); last=now; t+=dt;
   skyTimer-=dt; if(skyTimer<=0){ updateSky(); skyTimer=20; }
 
-  boat.position.z-=SPEED*dt;
+  steerUpdate(dt);
   boat.position.y=-0.2+(reduce?0:0.035*Math.sin(t*1.1)+0.02*Math.sin(t*0.53));
-  boat.rotation.z=reduce?0:0.028*Math.sin(t*0.7)+0.012*Math.sin(t*0.31);
+  boat.rotation.y=H;
+  boat.rotation.z=(reduce?0:0.028*Math.sin(t*0.7)+0.012*Math.sin(t*0.31))-turnVel*0.32;
   boat.rotation.x=reduce?0:0.014*Math.sin(t*0.9+1);
-  if(started){ travelled+=SPEED*dt; saveTimer-=dt; if(saveTimer<=0){ saveTimer=1; showWhere(); if(Math.random()<0.1) store.set('calmsea.dist',travelled.toFixed(1)); } }
+  if(started){ travelled+=spd*dt; saveTimer-=dt; if(saveTimer<=0){ saveTimer=1; showWhere(); if(Math.random()<0.1) store.set('calmsea.dist',travelled.toFixed(1)); } }
 
   sea.position.set(boat.position.x,0,boat.position.z); deep.position.x=boat.position.x; deep.position.z=boat.position.z;
   stars.position.set(boat.position.x,0,boat.position.z);
@@ -1252,8 +1447,8 @@ function frame(now){
   myGlow.material.opacity=night*0.55+flash; myGlow.scale.setScalar(1.6+flash*2.5);
 
   emitWake(dt); updateFoam(dt); updateJumper(dt); updatePod(); updateSurfacer(dt); updateMeteor(dt); updateEncounter(dt); updateMist(dt); updateFishing(dt); startIncoming(); updateShouts(dt); updateOthers(dt); updateClouds(dt); updateGulls(dt);
-  { const H=seaMat.uniforms.uHulls.value; H[0].set(boat.position.x,boat.position.z,boat.rotation.y); let n=1;
-    for(const o of others.values()){ if(n>=8) break; H[n++].set(o.g.position.x,o.g.position.z,o.g.rotation.y); } seaMat.uniforms.uHullN.value=n; }
+  { const HU=seaMat.uniforms.uHulls.value; HU[0].set(boat.position.x,boat.position.z,boat.rotation.y); let n=1;
+    for(const o of others.values()){ if(n>=8) break; if(!o.g.visible) continue; HU[n++].set(o.g.position.x,o.g.position.z,o.g.rotation.y); } seaMat.uniforms.uHullN.value=n; }
   updateBottles(dt);
   updateCamera(dt);
   renderer.render(scene,camera);
@@ -1276,6 +1471,7 @@ canvas.addEventListener('pointerdown',()=>{ if(!panels.read.hidden||!panels.catc
 $('fishPill').addEventListener('click',startCast);
 $('releaseBtn').addEventListener('click',releaseCatch);
 $('giftBtn').addEventListener('click',startGift);
+$('thanksBtn').addEventListener('click',()=>{ const f=fishing; if(!f||f.state!=='show'||!f.from) return; netEmote(f.from,'thanks'); showBubble(boat,EMOTES.thanks); soundChime(false); releaseCatch(); });
 $('shoutBtn').addEventListener('click',()=>{ openPanel(panels.shout.hidden?'shout':null); if(!panels.shout.hidden){ refreshShoutPanel(); if(shoutWait()===0) setTimeout(()=>$('shoutInput').focus(),50); } });
 $('shoutInput').addEventListener('input',refreshShoutPanel);
 $('shoutInput').addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.isComposing){ e.preventDefault(); if(!$('sendShout').disabled) doShout(); } });
@@ -1294,13 +1490,14 @@ vol.addEventListener('input',applyVol); vol.addEventListener('change',()=>store.
 const FIREBASE_CONFIG = {"apiKey": "AIzaSyBJq2ffhQCe31Cg8lmw4lx1m6kS-m9j8vI", "authDomain": "clam-ocean.firebaseapp.com", "databaseURL": "https://clam-ocean-default-rtdb.asia-southeast1.firebasedatabase.app", "projectId": "clam-ocean", "storageBucket": "clam-ocean.firebasestorage.app", "messagingSenderId": "501227064932", "appId": "1:501227064932:web:f557bf8768f103856a1971"};
 let room=null, db=null, myId=null, myPeer=null, netReady=false, fb=null;
 let netBlink=()=>{}, netGift=()=>{}, netBottle=null, netJoin=()=>{}, netShout=()=>{};
+const sayEmote=(to,e)=>netGift(to,{kind:'e:'+e,size:0});
 function blinkMine(){ myBlink=1.6; soundChime(false); }
 $('lampBtn').addEventListener('click',()=>{ blinkMine(); netBlink(); });
 function onBlinkFrom(id){ const o=others.get(id); if(o){ o.blink=1.6; soundChime(true); } }
 
 async function connectClaude(cl){
   cl.use('room').then(r=>{ if(!r) return; room=r; netReady=true;
-    const sync=ch=>{ for(const p of ch.peers){ if(p.sameTab){ myPeer=p.peer; continue; } if(p.kind==='viewer'&&p.presence&&p.presence.boat) addOther(p.peer); }
+    const sync=ch=>{ for(const p of ch.peers){ if(p.sameTab){ myPeer=p.peer; continue; } if(p.kind==='viewer'&&p.presence&&p.presence.boat){ addOther(p.peer); setOtherState(p.peer,p.presence); } }
       for(const p of ch.left) removeOther(p.peer);
       for(const id of [...others.keys()]) if(!ch.peers.some(p=>p.peer===id)) removeOther(id); };
     room.onPeers(sync,()=>{});
@@ -1309,7 +1506,9 @@ async function connectClaude(cl){
     room.on('gift',msg=>{ if(msg.sameTab||!msg.data||msg.data.to!==myPeer) return; receiveGift(msg.peer,msg.data); },()=>{});
     netBlink=()=>{ if(room.connected()) room.emit('blink',{}).catch(()=>{}); };
     netGift=(to,g)=>{ room.emit('gift',{to,kind:g.kind,size:g.size}).catch(()=>{}); };
-    netJoin=()=>room.presence({boat:1}).catch(()=>{});
+    netState=st=>{ if(room.connected()) room.presence({boat:1,...st}).catch(()=>{}); };
+    netEmote=sayEmote;
+    netJoin=()=>netState(stateNow());
     if(started) netJoin();
   });
   const [d,u]=await Promise.all([cl.use('db'),cl.use('user')]);
@@ -1330,14 +1529,15 @@ async function connectFirebase(cfg){
   const seen=new Map();
   const fresh=v=>v&&typeof v.at==='number'&&Date.now()-v.at<180000;
   const boats=D.ref(fdb,'boats');
-  const onBoat=snap=>{ if(snap.key===myId) return; const v=snap.val(); seen.set(snap.key,Date.now()); if(fresh(v)) addOther(snap.key); };
+  const onBoat=snap=>{ if(snap.key===myId) return; const v=snap.val(); seen.set(snap.key,Date.now()); if(fresh(v)){ addOther(snap.key); setOtherState(snap.key,v); } };
   D.onChildAdded(boats,onBoat); D.onChildChanged(boats,onBoat);
   D.onChildRemoved(boats,snap=>removeOther(snap.key));
   setInterval(()=>{ for(const id of [...others.keys()]) if(Date.now()-(seen.get(id)||0)>200000) removeOther(id); },30000);
   const me=D.ref(fdb,'boats/'+myId);
-  netJoin=()=>{ D.set(me,{at:D.serverTimestamp()}).catch(()=>{}); D.onDisconnect(me).remove();
-    D.onDisconnect(D.ref(fdb,'blinks/'+myId)).remove(); D.onDisconnect(D.ref(fdb,'gifts/'+myId)).remove();
-    setInterval(()=>D.set(me,{at:D.serverTimestamp()}).catch(()=>{}),60000); };
+  netState=st=>{ D.set(me,{at:D.serverTimestamp(),...st}).catch(()=>{}); };
+  netEmote=sayEmote;
+  netJoin=()=>{ netState(stateNow()); D.onDisconnect(me).remove();
+    D.onDisconnect(D.ref(fdb,'blinks/'+myId)).remove(); D.onDisconnect(D.ref(fdb,'gifts/'+myId)).remove(); };
   const blinks=D.ref(fdb,'blinks');
   const onB=snap=>{ const v=snap.val(); if(snap.key===myId||!v||Date.now()-v.at>=15000) return; if(typeof v.shout==='string') onShoutFrom(snap.key,v.shout); else onBlinkFrom(snap.key); };
   netShout=text=>{ D.set(D.ref(fdb,'blinks/'+myId),{at:D.serverTimestamp(),shout:text}).catch(()=>{}); };
@@ -1356,31 +1556,40 @@ async function connectShared(){
   if(cl&&cl.use){ connectClaude(cl); return; }
   if(FIREBASE_CONFIG&&FIREBASE_CONFIG.databaseURL){ try{ await connectFirebase(FIREBASE_CONFIG); }catch(_){ } }
 }
+const QS=['오늘 하루를 한 줄로 말하면?','지금 가장 듣고 싶은 말은?','오늘 나를 웃게 한 것은?','이 바다 끝에 닿으면 하고 싶은 일은?','누군가에게 전하고 싶었던 말은?','요즘 가장 고마운 것은?','지금 어디로 가고 싶나요?','오늘 나에게 해 주고 싶은 말은?'];
+let curQ=Math.floor(Math.random()*QS.length);
+function showQ(){ $('letterQ').textContent=QS[curQ]; }
+$('nextQ').addEventListener('click',()=>{ curQ=(curQ+1)%QS.length; showQ(); });
+const CRISIS=/(죽고\s*싶|죽을래|죽어버|자살|자해|목숨|살기\s*싫|사라지고\s*싶|끝내고\s*싶)/;
+const flatText=t=>String(t||'').toLowerCase().replace(/[\s.,!?~*_\-^:;'"`·]+/g,'');
+const badText=t=>BAD.some(w=>flatText(t).includes(w));
+function parseLetter(l){ const m=/^q(\d)\|([\s\S]*)$/.exec(String(l.text||'')); return m?{q:QS[+m[1]]||null,a:m[2]}:{q:null,a:String(l.text||'')}; }
 let letters=[];
 const readSet=new Set((store.get('calmsea.read')||'').split(',').filter(Boolean));
 function pickLetter(){
-  const pool=letters.filter(l=>l&&typeof l.text==='string'&&l.text.trim()&&l.by!==myId&&!readSet.has(l.id));
+  const pool=letters.filter(l=>l&&typeof l.text==='string'&&l.text.trim()&&l.by!==myId&&!readSet.has(l.id)&&!badText(l.text)&&!CRISIS.test(l.text));
   if(!pool.length) return null; return pool[Math.floor(Math.random()*pool.length)];
 }
 function updateBottles(dt){
   if(started&&!drift.visible){ bottleTimer-=rdt;
-    if(bottleTimer<=0){ bottleTimer=240+Math.random()*180; const l=pickLetter();
-      if(l){ driftLetter=l; drift.visible=true; drift.position.set(boat.position.x+(Math.random()<.5?-1:1)*(1.6+Math.random()*0.6),0,boat.position.z-14); } } }
+    if(bottleTimer<=0){ bottleTimer=110+Math.random()*100; const l=pickLetter();
+      if(l){ driftLetter=l; driftT=0; drift.visible=true; bloc((Math.random()<.5?-1:1)*(1.6+Math.random()*0.6),-14,_o); drift.position.set(_o.x,0,_o.z); } } }
   if(drift.visible){
     drift.position.y=0.02+Math.sin(t*1.6)*0.03; drift.rotation.y=t*0.15;
-    const rel=drift.position.z-boat.position.z;
+    driftT+=dt; const rel=blocal(drift.position.x,drift.position.z,_l).z;
     const near=rel>-9&&rel<4; $('bottlePill').classList.toggle('fade',!near); $('bottlePill').tabIndex=near?0:-1;
-    if(rel>9){ drift.visible=false; driftLetter=null; bottleTimer=90; $('bottlePill').classList.add('fade'); }
+    if(rel>9||driftT>140){ drift.visible=false; driftLetter=null; bottleTimer=60; $('bottlePill').classList.add('fade'); }
   }
   if(tossT>=0){ tossT+=dt; const s=Math.min(1,tossT/1.2);
     tossed.visible=true;
-    tossed.position.set(tossFrom.x+s*1.6,lerp(tossFrom.y,0.02,s)+Math.sin(Math.PI*s)*0.9,tossFrom.z+s*1.2);
+    tossed.position.set(tossFrom.x+s*tossAway.x,lerp(tossFrom.y,0.02,s)+Math.sin(Math.PI*s)*0.9,tossFrom.z+s*tossAway.z);
     if(s>=1){ if(tossT<1.3) splash(tossed.position.x,tossed.position.z,false); tossed.position.y=0.02+Math.sin(t*1.6)*0.03;
-      if(tossed.position.z-boat.position.z>14){ tossed.visible=false; tossT=-1; } } }
+      if(blocal(tossed.position.x,tossed.position.z,_l).z>14||tossT>120){ tossed.visible=false; tossT=-1; } } }
 }
+function startToss(){ bloc(0.4,SEAT_Z,_o); tossFrom.set(_o.x,0.9,_o.z); bloc(1.6,1.2,_l); tossAway.set(_l.x-_o.x,0,_l.z-_o.z); tossT=0; }
 function openDrift(){
   if(!driftLetter) return;
-  $('letterText').textContent=driftLetter.text.slice(0,80);
+  { const pl=parseLetter(driftLetter); $('readQ').hidden=!pl.q; $('readQ').textContent=pl.q?('Q. '+pl.q):''; $('letterText').textContent=pl.a.slice(0,80); }
   const days=Math.floor((Date.now()-(driftLetter.at||Date.now()))/86400000);
   $('letterWhen').textContent=days<1?'오늘 띄운 편지':`${days}일 전에 띄운 편지`;
   readSet.add(driftLetter.id); store.set('calmsea.read',[...readSet].slice(-200).join(','));
@@ -1388,20 +1597,24 @@ function openDrift(){
   openPanel('read');
 }
 $('bottlePill').addEventListener('click',openDrift);
-$('releaseLetter').addEventListener('click',()=>{ openPanel(null); tossFrom.set(boat.position.x+0.4,0.9,boat.position.z+SEAT_Z); tossT=0; driftLetter=null; });
+$('releaseLetter').addEventListener('click',()=>{ openPanel(null); startToss(); driftLetter=null; });
 
-$('bottleBtn').addEventListener('click',()=>{ openPanel(panels.write.hidden?'write':null); if(!panels.write.hidden) setTimeout(()=>$('letterInput').focus(),50); });
+$('bottleBtn').addEventListener('click',()=>{ openPanel(panels.write.hidden?'write':null); if(!panels.write.hidden){ showQ(); $('careNote').hidden=true; setTimeout(()=>$('letterInput').focus(),50); } });
 const input=$('letterInput');
-input.addEventListener('input',()=>{ $('letterCount').textContent=`${input.value.length} / 80`; $('sendLetter').disabled=!input.value.trim(); });
+input.addEventListener('input',()=>{ $('letterCount').textContent=`${input.value.length} / 60`; $('sendLetter').disabled=!input.value.trim(); $('careNote').hidden=true; });
 let sending=false;
 $('sendLetter').addEventListener('click',async()=>{
-  const text=input.value.trim().slice(0,80); if(!text||!netBottle||sending) return;
+  const answer=input.value.replace(/[\u0000-\u001f\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff]/g,'').trim().slice(0,60); if(!answer||sending) return;
+  if(CRISIS.test(answer)){ $('careNote').hidden=false; return; }
+  if(!netBottle) return;
+  if(badText(answer)){ toast('그 말은 바다에 띄울 수 없어요'); return; }
+  const text='q'+curQ+'|'+answer;
   sending=true; $('sendLetter').disabled=true;
   try{
     await netBottle(text);
     store.set('calmsea.read',[...readSet].slice(-200).join(','));
-    input.value=''; $('letterCount').textContent='0 / 80'; openPanel(null);
-    tossFrom.set(boat.position.x+0.4,0.9,boat.position.z+SEAT_Z); tossT=0; soundSplash(0.4);
+    input.value=''; $('letterCount').textContent='0 / 60'; openPanel(null);
+    startToss(); soundSplash(0.4);
     toast('바다에 띄웠어요');
   }catch(e){ toast(e&&e.code==='quota_exceeded'?'바다에 병이 너무 많아요':'지금은 띄울 수 없어요'); $('sendLetter').disabled=false; }
   sending=false;
@@ -1412,9 +1625,9 @@ connectShared();
 $('board').addEventListener('click',()=>{
   started=true; if(!sailFrom){ sailFrom=Date.now(); showSailTime(); }
   try{ initAudio(); if(ac&&ac.state==='suspended') ac.resume(); }catch(_){}
-  $('intro').classList.add('fade'); $('dock').classList.remove('fade'); $('where').classList.remove('fade');
+  $('intro').classList.add('fade'); $('dock').classList.remove('fade'); $('where').classList.remove('fade'); $('radar').classList.remove('fade');
   const hint=$('hint'); hint.classList.remove('fade'); setTimeout(()=>hint.classList.add('fade'),7000);
-  netJoin();
+  spawnNear(); netJoin();
   keepAwake();
 });
 function keepAwake(){ try{ navigator.wakeLock&&navigator.wakeLock.request('screen').catch(()=>{}); }catch(_){} }
