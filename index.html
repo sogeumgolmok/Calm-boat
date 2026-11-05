@@ -84,9 +84,8 @@ body{background:var(--night);color:var(--ink);font-family:var(--body);overflow:h
 <canvas id="sea" aria-label="하늘색 바다 위를 천천히 떠가는 작은 배와 그 위에 앉은 아이, 배 밑을 따라오는 돌고래들"></canvas>
 
 <div class="where fade" id="where">
-  <span class="sea-name">북태평양</span>
-  <span class="coord" id="coord">33.5000°N 152.0000°E</span>
-  <span id="dist">떠 온 거리 0.00km</span>
+  <span class="sea-name" id="sailTime">항해 시간 0:00</span>
+  <span id="dist">항해한 거리 0.00km</span>
   <span id="others" hidden></span>
 </div>
 
@@ -1013,7 +1012,7 @@ function sendGiftTo(id){
   rod.visible=false; fishLine.visible=false; openPanel(null);
   caughtCount++; store.set('calmsea.catch',String(caughtCount));
   netGift(id,{kind:f.kind.id,size:f.size});
-  soundSplash(0.4); toast(`${f.kind.name}를 보냈어요`);
+  soundSplash(0.4); toast(`${josa(f.kind.name,'을','를')} 보냈어요`);
 }
 const giftQueue=[];
 function receiveGift(fromId,data){
@@ -1029,7 +1028,9 @@ function startIncoming(){
   src.y=0.8;
   const c=makeCatch(gq.kind); scene.add(c.g);
   fishing={state:'incoming',t:0,side:src.x>boat.position.x?1:-1,kind:gq.kind,size:gq.size,c,src,received:true};
-  soundChime(true);
+  soundChime(true); toast(`가까이 있는 배가 ${josa(gq.kind.name,'을','를')} 보내왔어요`);
+  const nm=gq.kind.name, code=nm.charCodeAt(nm.length-1)-0xac00, josa=(code>=0&&code<11172&&code%28)?'을':'를';
+  toast(`가까이 있는 배가 ${nm}${josa} 보내왔어요`);
 }
 
 /* ---------- shouting to the sky: fireworks, then the words drift down ---------- */
@@ -1182,11 +1183,15 @@ const START_LAT=33.5, START_LON=152.0;
 let travelled=parseFloat(store.get('calmsea.dist'))||0, saveTimer=0;
 function showWhere(){
   const km=travelled/1000;
-  const lat=START_LAT-km/111.32;
-  $('coord').textContent=`${Math.abs(lat).toFixed(4)}°${lat>=0?'N':'S'} ${START_LON.toFixed(4)}°E`;
-  $('dist').textContent=`떠 온 거리 ${km<10?km.toFixed(2):km.toFixed(1)}km`;
+  $('dist').textContent=`항해한 거리 ${km<10?km.toFixed(2):km.toFixed(1)}km`;
 }
 showWhere();
+let sailFrom=0;
+function josa(w,a,b){ const c=w.charCodeAt(w.length-1)-0xac00; return w+((c>=0&&c<11172&&c%28)?a:b); }
+function showSailTime(){ if(!sailFrom) return;
+  const s=Math.floor((Date.now()-sailFrom)/1000), h=Math.floor(s/3600), m=Math.floor(s/60)%60, ss=String(s%60).padStart(2,'0');
+  $('sailTime').textContent='항해 시간 '+(h?`${h}:${String(m).padStart(2,'0')}:${ss}`:`${m}:${ss}`); }
+setInterval(showSailTime,1000);
 
 /* ---------- sound ---------- */
 let ac=null, master=null, noiseBuf=null, volume=0.8;
@@ -1405,15 +1410,17 @@ $('sendLetter').addEventListener('click',async()=>{
 /* ---------- start ---------- */
 connectShared();
 $('board').addEventListener('click',()=>{
-  started=true;
+  started=true; if(!sailFrom){ sailFrom=Date.now(); showSailTime(); }
   try{ initAudio(); if(ac&&ac.state==='suspended') ac.resume(); }catch(_){}
   $('intro').classList.add('fade'); $('dock').classList.remove('fade'); $('where').classList.remove('fade');
   const hint=$('hint'); hint.classList.remove('fade'); setTimeout(()=>hint.classList.add('fade'),7000);
   netJoin();
-  try{ navigator.wakeLock&&navigator.wakeLock.request('screen').catch(()=>{}); }catch(_){}
+  keepAwake();
 });
+function keepAwake(){ try{ navigator.wakeLock&&navigator.wakeLock.request('screen').catch(()=>{}); }catch(_){} }
 addEventListener('pagehide',()=>store.set('calmsea.dist',travelled.toFixed(1)));
 document.addEventListener('visibilitychange',()=>{ if(document.hidden) store.set('calmsea.dist',travelled.toFixed(1));
+  if(!document.hidden&&started) keepAwake();
   if(!ac) return; if(document.hidden) ac.suspend(); else ac.resume(); });
 </script>
 
