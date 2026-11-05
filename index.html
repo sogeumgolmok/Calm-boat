@@ -190,7 +190,7 @@ addEventListener('resize',resize); resize();
 
 /* ---------- sky ---------- */
 function setupSky(s){ s.scale.setScalar(10000); const u=s.material.uniforms;
-  u.turbidity.value=3.2; u.rayleigh.value=2.3; u.mieCoefficient.value=0.004; u.mieDirectionalG.value=0.82; }
+  u.turbidity.value=2.0; u.rayleigh.value=3.0; u.mieCoefficient.value=0.003; u.mieDirectionalG.value=0.86; }
 const sky=new Sky(); setupSky(sky); scene.add(sky);
 const envSky=new Sky(); setupSky(envSky); const envScene=new THREE.Scene(); envScene.add(envSky);
 const pmrem=new THREE.PMREMGenerator(renderer); let envRT=null, lastEnvElev=999;
@@ -213,6 +213,90 @@ moon.scale.setScalar(900); scene.add(moon);
 const lampGlowTex=glowTex('rgba(255,220,160,1)','rgba(255,170,90,.35)',0.06);
 
 const hemi=new THREE.HemisphereLight(0xcfe3ff,0x6fa8c8,0.7); scene.add(hemi);
+/* ---------- daytime sky: clouds and gulls, all drawn here so nothing extra is downloaded ---------- */
+function cloudTex(seed){
+  let r=seed*9301+49297; const rnd=()=>{ r=(r*9301+49297)%233280; return r/233280; };
+  const c=document.createElement('canvas'); c.width=512; c.height=256; const g=c.getContext('2d');
+  const puffs=16+Math.floor(rnd()*10);
+  for(let i=0;i<puffs;i++){
+    const x=90+rnd()*332, top=Math.abs(x-256)/170, y=150-(1-top)*60*rnd()-20, rad=34+rnd()*58*(1-top*0.6);
+    const gr=g.createRadialGradient(x,y-rad*0.25,rad*0.1,x,y,rad);
+    gr.addColorStop(0,'rgba(255,255,255,1)'); gr.addColorStop(0.6,'rgba(255,255,255,.85)'); gr.addColorStop(1,'rgba(255,255,255,0)');
+    g.fillStyle=gr; g.beginPath(); g.arc(x,y,rad,0,7); g.fill();
+  }
+  g.globalCompositeOperation='source-atop';
+  const sh=g.createLinearGradient(0,70,0,220); sh.addColorStop(0,'rgba(255,255,255,0)'); sh.addColorStop(1,'rgba(118,138,170,.55)');
+  g.fillStyle=sh; g.fillRect(0,0,512,256);
+  const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; return t;
+}
+const cloudTexs=[1,2,3,4,5].map(cloudTex);
+const clouds=[];
+const sunGlow=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex('rgba(255,250,235,1)','rgba(255,225,170,.28)',0.03),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false}));
+sunGlow.scale.setScalar(1400); scene.add(sunGlow);
+// a clear blue wash over the daytime sky; it steps aside for sunrise, sunset and night
+const blueDome=new THREE.Mesh(new THREE.SphereGeometry(4000,32,16),new THREE.ShaderMaterial({
+  side:THREE.BackSide, transparent:true, depthWrite:false, toneMapped:false, fog:false,
+  uniforms:{uK:{value:1}},
+  vertexShader:`varying vec3 vDir; void main(){ vDir=normalize(position); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+  fragmentShader:`uniform float uK; varying vec3 vDir;
+    void main(){ float h=max(vDir.y,0.0);
+      vec3 col=mix(vec3(0.83,0.91,0.96),vec3(0.47,0.71,0.92),smoothstep(0.0,0.22,h));
+      col=mix(col,vec3(0.22,0.5,0.84),smoothstep(0.22,0.95,h));
+      float a=uK*mix(0.3,0.93,smoothstep(0.0,0.45,h))*step(-0.02,vDir.y);
+      gl_FragColor=vec4(col,a); }`
+}));
+blueDome.renderOrder=-2; scene.add(blueDome);
+function addCloud(az,el,dist,w,aspect,speed){
+  const m=new THREE.SpriteMaterial({map:cloudTexs[clouds.length%cloudTexs.length],transparent:true,depthWrite:false,toneMapped:false,fog:false});
+  const s=new THREE.Sprite(m); s.scale.set(w,w*aspect,1); scene.add(s);
+  clouds.push({s,az,el,dist,speed});
+}
+for(let i=0;i<34;i++){ const d=1700+Math.random()*500, ang=THREE.MathUtils.degToRad(8+Math.random()*12);
+  addCloud((i+Math.random()*0.8)/34*Math.PI*2,THREE.MathUtils.degToRad(1.2+Math.pow(Math.random(),1.6)*13),d,2*d*Math.tan(ang/2),0.5,0.0012+Math.random()*0.0015); }
+for(let i=0;i<10;i++){ const d=1100, ang=THREE.MathUtils.degToRad(20+Math.random()*16);
+  addCloud(Math.random()*Math.PI*2,THREE.MathUtils.degToRad(28+Math.random()*48),d,2*d*Math.tan(ang/2),0.42,0.002+Math.random()*0.002); }
+const cloudCol=new THREE.Color(), cloudDay=new THREE.Color(0.97,0.975,0.985), cloudWarm=new THREE.Color(1,0.76,0.6), cloudNight=new THREE.Color(0.2,0.24,0.34);
+let cloudAlpha=1;
+function tintClouds(low){
+  cloudCol.copy(cloudDay).lerp(cloudWarm,smooth(0.35,0.95,low)).lerp(cloudNight,night);
+  cloudAlpha=lerp(0.95,0.32,night);
+  for(const c of clouds){ c.s.material.color.copy(cloudCol); c.s.material.opacity=cloudAlpha; }
+}
+function updateClouds(dt){
+  blueDome.position.copy(boat.position);
+  for(const c of clouds){ c.az+=c.speed*dt;
+    const ce=Math.cos(c.el);
+    c.s.position.set(boat.position.x+Math.sin(c.az)*ce*c.dist, Math.sin(c.el)*c.dist, boat.position.z-Math.cos(c.az)*ce*c.dist); }
+}
+
+function makeGull(){
+  const g=new THREE.Group(), white=new THREE.MeshStandardMaterial({color:0xf5f5f2,roughness:0.6}), grey=new THREE.MeshStandardMaterial({color:0xaab3bb,roughness:0.6,side:THREE.DoubleSide});
+  const body=new THREE.Mesh(new THREE.CapsuleGeometry(0.07,0.32,6,10),white); body.rotation.x=Math.PI/2; g.add(body);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(0.075,12,10),white); head.position.set(0,0.03,-0.23); g.add(head);
+  const beak=new THREE.Mesh(new THREE.ConeGeometry(0.02,0.08,8),new THREE.MeshStandardMaterial({color:0xf0b429})); beak.rotation.x=-Math.PI/2; beak.position.set(0,0.02,-0.31); g.add(beak);
+  const ws=new THREE.Shape(); ws.moveTo(0,-0.08); ws.lineTo(0.32,-0.1); ws.quadraticCurveTo(0.62,-0.02,0.78,0.06); ws.lineTo(0.3,0.06); ws.lineTo(0,0.08); ws.closePath();
+  const wg=new THREE.ShapeGeometry(ws); wg.rotateX(-Math.PI/2);
+  const wings=[];
+  for(const s of [-1,1]){ const w=new THREE.Mesh(wg,grey); w.scale.x=s; w.position.set(s*0.05,0.02,-0.02); g.add(w); wings.push(w); }
+  g.scale.setScalar(1.5);
+  return {g,wings,ph:Math.random()*6.28};
+}
+let flock=null, nextFlock=25;
+function updateGulls(dt){
+  if(!flock){ if(!started||night>0.35) return; nextFlock-=rdt; if(nextFlock>0) return; nextFlock=45+Math.random()*50;
+    const dir=Math.random()<.5?1:-1, n=3+Math.floor(Math.random()*4), z=-14-Math.random()*22, y=5+Math.random()*3.5;
+    const birds=[]; for(let i=0;i<n;i++){ const b=makeGull(); b.side=((i%2)?1:-1)*Math.ceil(i/2)*1.3; b.back=Math.ceil(i/2)*1.6; b.up=(Math.random()-0.5)*0.8; scene.add(b.g); birds.push(b); }
+    flock={birds,dir,x:-dir*70,y,z,t:0}; return; }
+  const f=flock; f.t+=dt; f.x+=f.dir*6.5*dt;
+  for(const b of f.birds){
+    b.g.position.set(boat.position.x+f.x-f.dir*b.back, f.y+b.up+Math.sin(f.t*0.9+b.ph)*0.6, boat.position.z+f.z+b.side);
+    b.g.rotation.set(0,f.dir>0?-Math.PI/2:Math.PI/2,Math.sin(f.t*0.7+b.ph)*0.15);
+    const glide=Math.sin(f.t*0.45+b.ph)>0.3, flap=glide?0.12+Math.sin(f.t*2+b.ph)*0.05:Math.sin(f.t*9+b.ph)*0.55;
+    b.wings[0].rotation.z=flap; b.wings[1].rotation.z=-flap;
+  }
+  if(Math.abs(f.x)>75&&f.t>2){ for(const b of f.birds){ scene.remove(b.g); disposeTree(b.g); } flock=null; }
+}
+
 const sunLight=new THREE.DirectionalLight(0xffffff,2); scene.add(sunLight); scene.add(sunLight.target);
 
 /* ---------- the sea: rippling sky-blue silk with glints ---------- */
@@ -240,13 +324,16 @@ const seaMat=new THREE.ShaderMaterial({
     uTime:{value:0}, uSun:{value:new THREE.Vector3(0,1,0)},
     uDeep:{value:new THREE.Color()}, uSilk:{value:new THREE.Color()}, uSheen:{value:new THREE.Color()},
     uHorizon:{value:new THREE.Color()}, uSpark:{value:new THREE.Color()},
-    uBoat:{value:new THREE.Vector3()}, uLantern:{value:new THREE.Vector3()}, uLanternI:{value:0}
+    uBoat:{value:new THREE.Vector3()}, uLantern:{value:new THREE.Vector3()}, uLanternI:{value:0},
+    uHulls:{value:Array.from({length:8},()=>new THREE.Vector3())}, uHullN:{value:0}
   },
   vertexShader:`
     varying vec3 vWorld;
     void main(){ vec4 w=modelMatrix*vec4(position,1.0); vWorld=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }`,
   fragmentShader:`
     uniform float uTime; uniform vec3 uSun, uDeep, uSilk, uSheen, uHorizon, uSpark, uBoat, uLantern; uniform float uLanternI;
+    uniform vec3 uHulls[8]; uniform int uHullN;
+    float hullHalf(float u){ return u<0.55 ? 0.62*pow(sin(1.5707963*u/0.55),0.7) : 0.62-0.15*pow((u-0.55)/0.45,2.0); }
     varying vec3 vWorld;
     float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
     float noise(vec2 p){ vec2 i=floor(p), f=fract(p); vec2 u=f*f*(3.0-2.0*f);
@@ -263,6 +350,13 @@ const seaMat=new THREE.ShaderMaterial({
     }
     void main(){
       vec2 p=vWorld.xz;
+      for(int i=0;i<8;i++){
+        if(i>=uHullN) break;
+        vec3 hb=uHulls[i]; vec2 dd=p-hb.xy; float c=cos(hb.z), s=sin(hb.z);
+        vec2 l=vec2(c*dd.x-s*dd.y, s*dd.x+c*dd.y);
+        float u=(l.y+1.6)/3.2;
+        if(u>0.005 && u<0.995 && abs(l.x)<hullHalf(u)*0.97) discard;
+      }
       float dist=length(cameraPosition.xz-p);
       float e=0.12+dist*0.004;
       float hx=(height(p+vec2(e,0.0))-height(p-vec2(e,0.0)))/(2.0*e);
@@ -330,12 +424,16 @@ function updateSky(){
   sunLight.intensity=lerp(clamp(elev/8,0,1)*2.6,0.35,night);
   if(night>0.5){ sunLight.color.setRGB(0.62,0.7,0.9); sunLight.position.copy(moonDir).multiplyScalar(10); } else sunLight.position.copy(sunDir).multiplyScalar(10);
   hemi.intensity=lerp(0.75,0.14,night);
-  renderer.toneMappingExposure=lerp(0.5,0.42,night);
+  renderer.toneMappingExposure=lerp(lerp(0.66,0.52,low),0.42,night);
+  sunGlow.position.copy(sunDir).multiplyScalar(3000).add(boat.position); sunGlow.material.opacity=(1-night)*lerp(0.55,0.9,low);
+  sunGlow.material.color.setRGB(1,lerp(0.96,0.78,low),lerp(0.88,0.6,low));
   starMat.opacity=night*0.9; moon.material.opacity=night;
   const [d,s,sh,hz,spk]=seaPalette(h);
   const U=seaMat.uniforms; U.uDeep.value.copy(d); U.uSilk.value.copy(s); U.uSheen.value.copy(sh); U.uHorizon.value.copy(hz); U.uSpark.value.copy(spk);
   U.uSun.value.copy(night>0.5?moonDir:sunDir);
   deepMat.color.copy(d).multiplyScalar(0.55);
+  tintClouds(low);
+  blueDome.material.uniforms.uK.value=(1-night)*(1-smooth(0.5,0.95,low));
 }
 
 /* ---------- the boat ---------- */
@@ -368,7 +466,7 @@ const hullGeo=hullGeometry();
 const hullMat=new THREE.MeshStandardMaterial({map:planks,roughness:0.8,side:THREE.DoubleSide});
 hullMat.onBeforeCompile=sh=>{ sh.fragmentShader=sh.fragmentShader.replace('#include <map_fragment>',
   `#include <map_fragment>
-   diffuseColor.rgb *= gl_FrontFacing ? vec3(0.27,0.47,0.52) : vec3(0.62,0.42,0.27);`); };
+   diffuseColor.rgb *= gl_FrontFacing ? vec3(0.58,0.38,0.22) : vec3(0.22,0.45,0.52);`); };
 boat.add(new THREE.Mesh(hullGeo,hullMat));
 const rimPts=[];
 for(let i=48;i>=0;i--){ const u=i/48; rimPts.push(new THREE.Vector3(-hullW(u),hullTop(u),-HL/2+HL*u)); }
@@ -935,7 +1033,7 @@ function startIncoming(){
 }
 
 /* ---------- shouting to the sky: fireworks, then the words drift down ---------- */
-const SHOUT_MAX=10, SHOUT_GAP=180000;
+const SHOUT_MAX=10, SHOUT_GAP=120000;
 const BAD=['시발','씨발','씨바','시바','ㅅㅂ','ㅆㅂ','병신','ㅂㅅ','좆','존나','졸라','개새','새끼','미친','꺼져','닥쳐','썅','엿먹','지랄','느금','니애미','애미','애비','섹스','fuck','shit','bitch','sex','dick'];
 function cleanShout(text){
   const t=String(text||'').replace(/[\u0000-\u001f\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff]/g,'').trim().slice(0,SHOUT_MAX);
@@ -1148,7 +1246,9 @@ function frame(now){
   U.uLanternI.value=night*1.0+flash*1.4;
   myGlow.material.opacity=night*0.55+flash; myGlow.scale.setScalar(1.6+flash*2.5);
 
-  emitWake(dt); updateFoam(dt); updateJumper(dt); updatePod(); updateSurfacer(dt); updateMeteor(dt); updateEncounter(dt); updateMist(dt); updateFishing(dt); startIncoming(); updateShouts(dt); updateOthers(dt);
+  emitWake(dt); updateFoam(dt); updateJumper(dt); updatePod(); updateSurfacer(dt); updateMeteor(dt); updateEncounter(dt); updateMist(dt); updateFishing(dt); startIncoming(); updateShouts(dt); updateOthers(dt); updateClouds(dt); updateGulls(dt);
+  { const H=seaMat.uniforms.uHulls.value; H[0].set(boat.position.x,boat.position.z,boat.rotation.y); let n=1;
+    for(const o of others.values()){ if(n>=8) break; H[n++].set(o.g.position.x,o.g.position.z,o.g.rotation.y); } seaMat.uniforms.uHullN.value=n; }
   updateBottles(dt);
   updateCamera(dt);
   renderer.render(scene,camera);
